@@ -1,0 +1,6 @@
+{
+  "name": "AURELIX Analytics",
+  "description": "Executive Business Intelligence & Financial Analytics SaaS Dashboard for analyzing revenue, orders, customers, sales performance, and operational telemetry.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

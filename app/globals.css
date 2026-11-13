@@ -1,0 +1,89 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg-app: #F8FAFC;
+  --bg-sidebar: #FFFFFF;
+  --bg-card: #FFFFFF;
+  --bg-elevated: #F1F5F9;
+  --text-main: #0F172A;
+  --text-secondary: #64748B;
+  --border-subtle: #E2E8F0;
+  --accent-primary: #2563EB;
+  --accent-hover: #1D4ED8;
+  --status-positive: #059669;
+  --status-warning: #D97706;
+  --status-negative: #DC2626;
+}
+
+.dark {
+  --bg-app: #090D18;
+  --bg-sidebar: #0F1625;
+  --bg-card: #141C2D;
+  --bg-elevated: #1B2639;
+  --text-main: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --border-subtle: #273247;
+  --accent-primary: #60A5FA;
+  --accent-hover: #3B82F6;
+  --status-positive: #10B981;
+  --status-warning: #F59E0B;
+  --status-negative: #EF4444;
+}
+
+@theme inline {
+  --font-display: var(--font-jakarta), sans-serif;
+  --font-sans: var(--font-public-sans), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
+
+  --color-app: var(--bg-app);
+  --color-sidebar: var(--bg-sidebar);
+  --color-surface: var(--bg-card);
+  --color-elevated: var(--bg-elevated);
+  --color-main: var(--text-main);
+  --color-muted: var(--text-secondary);
+  --color-subtle: var(--border-subtle);
+  --color-accent: var(--accent-primary);
+  --color-accent-hover: var(--accent-hover);
+  --color-positive: var(--status-positive);
+  --color-warning: var(--status-warning);
+  --color-negative: var(--status-negative);
+}
+
+@layer base {
+  body {
+    background-color: var(--bg-app);
+    color: var(--text-main);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, .font-heading {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #FFFFFF !important;
+    color: #0F172A !important;
+  }
+}
