@@ -89,7 +89,7 @@ export default function ActivityFeedPage() {
           <button
             type="button"
             onClick={handleExportActivityLog}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export Activity CSV</span>
@@ -98,15 +98,15 @@ export default function ActivityFeedPage() {
       />
 
       {/* Transparency Notice */}
-      <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-2.5 text-xs text-slate-700 dark:text-slate-300">
-        <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+      <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-2.5 text-xs text-ink-secondary">
+        <Info className="w-4 h-4 text-accent mt-0.5 shrink-0" />
         <span>
           <strong>Client-Side Demo Activity Log:</strong> Events below are persisted locally in your browser&apos;s LocalStorage to demonstrate operational traceability. This is a frontend demonstration log, not a tamper-proof server security audit log.
         </span>
       </div>
 
       {/* Filter Bar */}
-      <div className="p-4 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="p-4 rounded-xl bg-surface-raised border border-line flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2">
           {(['All', 'Order', 'Customer', 'Product', 'Report', 'Settings', 'Team'] as const).map(
             (cat) => (
@@ -119,8 +119,8 @@ export default function ActivityFeedPage() {
                 }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                   categoryFilter === cat
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 dark:bg-[#0F1625] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    ? 'bg-accent-strong text-white'
+                    : 'bg-surface-sunken text-ink-muted hover:text-ink'
                 }`}
               >
                 {cat}
@@ -131,7 +131,7 @@ export default function ActivityFeedPage() {
 
         <div className="flex flex-wrap items-center gap-2.5 text-xs">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
@@ -140,7 +140,7 @@ export default function ActivityFeedPage() {
                 setPage(1);
               }}
               placeholder="Search actor, action, target..."
-              className="pl-8 pr-3 py-1.5 w-56 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+              className="pl-8 pr-3 py-1.5 w-56 rounded-lg bg-surface-sunken border border-line"
             />
           </div>
 
@@ -152,7 +152,7 @@ export default function ActivityFeedPage() {
               setStartDateFilter(e.target.value);
               setPage(1);
             }}
-            className="px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] font-mono"
+            className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line tabular-nums"
           />
           <input
             type="date"
@@ -162,7 +162,7 @@ export default function ActivityFeedPage() {
               setEndDateFilter(e.target.value);
               setPage(1);
             }}
-            className="px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] font-mono"
+            className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line tabular-nums"
           />
         </div>
       </div>
@@ -181,39 +181,39 @@ export default function ActivityFeedPage() {
           }}
         />
       ) : (
-        <div className="rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] overflow-hidden">
-          <div className="divide-y divide-slate-100 dark:divide-slate-800/70">
+        <div className="rounded-xl bg-surface-raised border border-line overflow-hidden">
+          <div className="divide-y divide-line-subtle">
             {paginatedActivities.map((act) => (
               <div
                 key={act.id}
                 onClick={() => setSelectedEvent(act)}
-                className="p-4 sm:px-6 hover:bg-slate-50 dark:hover:bg-[#1B2639]/50 cursor-pointer transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                className="p-4 sm:px-6 hover:bg-surface-hover/50 cursor-pointer transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
               >
                 <div className="flex items-start gap-3.5">
                   <UserAvatar name={act.actorName} size="md" />
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="font-bold text-slate-900 dark:text-slate-100">
+                      <span className="font-bold text-ink">
                         {act.action}
                       </span>
-                      <span className="text-slate-400">·</span>
-                      <span className="font-mono text-blue-600 dark:text-blue-400 font-medium">
+                      <span className="text-ink-muted">·</span>
+                      <span className="tabular-nums text-accent font-medium">
                         {act.targetName}
                       </span>
-                      <span className="text-slate-400">·</span>
-                      <span className="text-slate-500">{act.category}</span>
+                      <span className="text-ink-muted">·</span>
+                      <span className="text-ink-muted">{act.category}</span>
                     </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                    <p className="text-xs text-ink-secondary leading-relaxed">
                       {act.description}
                     </p>
-                    <div className="text-[11px] text-slate-400">
-                      Actor: <span className="text-slate-600 dark:text-slate-300 font-medium">{act.actorName}</span> ({act.actorRole})
+                    <div className="text-xs text-ink-muted">
+                      Actor: <span className="text-ink-secondary font-medium">{act.actorName}</span> ({act.actorRole})
                     </div>
                   </div>
                 </div>
 
                 <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0">
-                  <span className="text-xs font-mono tabular-nums text-slate-500">
+                  <span className="text-xs tabular-nums text-ink-muted">
                     {formatDateDisplay(act.timestamp, settings.dateFormat)}{' '}
                     {act.timestamp.slice(11, 16)} UTC
                   </span>
@@ -223,7 +223,7 @@ export default function ActivityFeedPage() {
                       e.stopPropagation();
                       setSelectedEvent(act);
                     }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs bg-slate-100 dark:bg-[#0F1625] text-slate-700 dark:text-slate-300 hover:bg-blue-600 hover:text-white transition-colors"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs bg-surface-sunken text-ink-secondary hover:bg-blue-600 hover:text-white transition-colors"
                   >
                     <Eye className="w-3 h-3" />
                     <span>Details</span>
@@ -252,34 +252,34 @@ export default function ActivityFeedPage() {
       >
         {selectedEvent && (
           <div className="space-y-4 text-xs">
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] space-y-2.5">
+            <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-2.5">
               <div className="flex justify-between">
-                <span className="text-slate-500">Timestamp (ISO):</span>
-                <span className="font-mono tabular-nums">{selectedEvent.timestamp}</span>
+                <span className="text-ink-muted">Timestamp (ISO):</span>
+                <span className="tabular-nums">{selectedEvent.timestamp}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Actor:</span>
+                <span className="text-ink-muted">Actor:</span>
                 <span className="font-semibold">
                   {selectedEvent.actorName} ({selectedEvent.actorRole})
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Domain Category:</span>
-                <span className="font-mono">{selectedEvent.category}</span>
+                <span className="text-ink-muted">Domain Category:</span>
+                <span className="tabular-nums">{selectedEvent.category}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Target Entity:</span>
-                <span className="font-mono text-blue-600 dark:text-blue-400">
+                <span className="text-ink-muted">Target Entity:</span>
+                <span className="tabular-nums text-accent">
                   {selectedEvent.targetName}
                 </span>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] space-y-1.5">
-              <div className="font-semibold text-slate-900 dark:text-slate-100">
+            <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-1.5">
+              <div className="font-semibold text-ink">
                 Event Summary
               </div>
-              <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
+              <p className="text-ink-secondary leading-relaxed">
                 {selectedEvent.description}
               </p>
             </div>

@@ -30,7 +30,7 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
       {isHydrated && recoveryAlertMessage && (
         <div
           role="alert"
-          className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2.5 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between gap-4"
+          className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2.5 text-xs text-warning flex items-center justify-between gap-4"
         >
           <span>{recoveryAlertMessage}</span>
           <button

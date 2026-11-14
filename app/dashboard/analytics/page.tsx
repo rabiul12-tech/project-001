@@ -162,7 +162,7 @@ export default function DeepAnalyticsPage() {
           <button
             type="button"
             onClick={handleExportAnalyticsCsv}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export Analytics CSV</span>
@@ -171,9 +171,9 @@ export default function DeepAnalyticsPage() {
       />
 
       {/* Filter & Metric Selector Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247]">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-4 rounded-xl bg-surface-raised border border-line">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 mr-1">
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-secondary mr-1">
             <Filter className="w-3.5 h-3.5" />
             <span>Channel Filter:</span>
           </span>
@@ -185,8 +185,8 @@ export default function DeepAnalyticsPage() {
                 onClick={() => setChannelFilter(ch)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                   channelFilter === ch
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-100 dark:bg-[#0F1625] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    ? 'bg-accent-strong text-white'
+                    : 'bg-surface-sunken text-ink-muted hover:text-ink'
                 }`}
               >
                 {ch}
@@ -196,7 +196,7 @@ export default function DeepAnalyticsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-slate-500 dark:text-slate-400">Primary Metric:</span>
+          <span className="text-xs text-ink-muted">Primary Metric:</span>
           <select
             aria-label="Select primary chart metric"
             value={activeMetric}
@@ -205,7 +205,7 @@ export default function DeepAnalyticsPage() {
                 e.target.value as 'netRevenue' | 'grossRevenue' | 'orders' | 'aov'
               )
             }
-            className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] text-xs font-medium text-slate-800 dark:text-slate-200"
+            className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line text-xs font-medium text-ink-secondary"
           >
             <option value="netRevenue">Net Revenue</option>
             <option value="grossRevenue">Gross Revenue</option>
@@ -213,7 +213,7 @@ export default function DeepAnalyticsPage() {
             <option value="aov">Average Order Value (AOV)</option>
           </select>
 
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-100 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]">
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-sunken border border-line">
             {(['area', 'bar', 'line'] as const).map((m) => (
               <button
                 key={m}
@@ -221,8 +221,8 @@ export default function DeepAnalyticsPage() {
                 onClick={() => setChartType(m)}
                 className={`px-2.5 py-1 text-xs font-medium rounded-md capitalize transition-colors ${
                   chartType === m
-                    ? 'bg-white dark:bg-[#1B2639] text-slate-900 dark:text-slate-100 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200'
+                    ? 'bg-surface-hover text-ink shadow-xs'
+                    : 'text-ink-muted hover:text-ink'
                 }`}
               >
                 {m}
@@ -262,13 +262,13 @@ export default function DeepAnalyticsPage() {
       </div>
 
       {/* Primary Customizable Visualization */}
-      <div className="p-6 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] space-y-4">
+      <div className="p-6 rounded-xl bg-surface-raised border border-line space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
+            <h2 className="text-heading text-ink">
               Time-Series Performance ({activeMetric === 'netRevenue' ? 'Net Revenue' : activeMetric === 'grossRevenue' ? 'Gross Revenue' : activeMetric === 'orders' ? 'Order Count' : 'Average Order Value'})
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-ink-muted">
               Interactive visualization across {timeSeries.length} time buckets
             </p>
           </div>
@@ -284,18 +284,18 @@ export default function DeepAnalyticsPage() {
 
       {/* Conversion Funnel & Category Performance */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-6 p-6 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] space-y-5">
+        <div className="lg:col-span-6 p-6 rounded-xl bg-surface-raised border border-line space-y-5">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
+              <h2 className="text-heading text-ink">
                 Acquisition & Conversion Funnel
               </h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-ink-muted">
                 Combines simulated session telemetry with actual settled order records
               </p>
             </div>
-            <span className="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
-              <Info className="w-3.5 h-3.5 text-blue-500" />
+            <span className="inline-flex items-center gap-1 text-xs text-ink-muted">
+              <Info className="w-3.5 h-3.5 text-accent" />
               <span>Demo Session Source</span>
             </span>
           </div>
@@ -304,26 +304,26 @@ export default function DeepAnalyticsPage() {
             {funnelStages.map((st, idx) => (
               <div
                 key={st.stage}
-                className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#0F1625] border border-slate-200/70 dark:border-[#273247] space-y-2"
+                className="p-3.5 rounded-xl bg-surface-sunken border border-line space-y-2"
               >
                 <div className="flex items-center justify-between gap-2 text-xs">
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  <span className="font-semibold text-ink">
                     0{idx + 1}. {st.stage}
                   </span>
-                  <span className="font-mono tabular-nums font-bold text-slate-900 dark:text-slate-100">
+                  <span className="tabular-nums font-bold text-ink">
                     {st.count.toLocaleString()}{' '}
-                    <span className="text-blue-600 dark:text-blue-400 font-normal">
+                    <span className="text-accent font-normal">
                       ({st.rateFromTop}%)
                     </span>
                   </span>
                 </div>
-                <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-[#1B2639] overflow-hidden">
+                <div className="w-full h-2 rounded-full bg-surface-hover overflow-hidden">
                   <div
-                    className="h-full rounded-full bg-blue-600 dark:bg-blue-500"
+                    className="h-full rounded-full bg-accent-strong dark:bg-blue-500"
                     style={{ width: `${Math.min(100, Math.max(6, st.rateFromTop))}%` }}
                   />
                 </div>
-                <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                <div className="text-xs text-ink-muted">
                   {st.conversionNote}
                 </div>
               </div>
@@ -331,12 +331,12 @@ export default function DeepAnalyticsPage() {
           </div>
         </div>
 
-        <div className="lg:col-span-6 p-6 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] flex flex-col justify-between space-y-5">
+        <div className="lg:col-span-6 p-6 rounded-xl bg-surface-raised border border-line flex flex-col justify-between space-y-5">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
+            <h2 className="text-heading text-ink">
               Product Category Performance
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-ink-muted">
               Gross line-item revenue and unit volume distribution by category
             </p>
           </div>
@@ -347,8 +347,8 @@ export default function DeepAnalyticsPage() {
             numberFormat={settings.numberFormat}
           />
 
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-            <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-3">
+          <div className="pt-4 border-t border-line-subtle">
+            <h3 className="text-xs font-bold text-ink mb-3">
               Sales Channel Distribution (All Channels in Period)
             </h3>
             <ChannelDonutChart
@@ -362,24 +362,24 @@ export default function DeepAnalyticsPage() {
 
       {/* Customer Acquisition & Period Comparison Table */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-5 p-6 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] space-y-4">
+        <div className="lg:col-span-5 p-6 rounded-xl bg-surface-raised border border-line space-y-4">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
+            <h2 className="text-heading text-ink">
               Customer Acquisition & Order Velocity
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-ink-muted">
               New account cohorts alongside order frequency
             </p>
           </div>
           <OrdersAndCustomerGrowthChart data={timeSeries} />
         </div>
 
-        <div className="lg:col-span-7 p-6 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] space-y-4">
+        <div className="lg:col-span-7 p-6 rounded-xl bg-surface-raised border border-line space-y-4">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
+            <h2 className="text-heading text-ink">
               Period-over-Period Benchmark Table
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-ink-muted">
               Current {dateWindow.days}-day window compared against immediately preceding {dateWindow.days}-day window
             </p>
           </div>
@@ -387,20 +387,20 @@ export default function DeepAnalyticsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-[#273247] text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                <tr className="border-b border-line text-xs font-semibold text-ink-muted">
                   <th className="pb-2.5">Financial / Operational Metric</th>
                   <th className="pb-2.5 text-right">Current Period</th>
                   <th className="pb-2.5 text-right">Previous Period</th>
                   <th className="pb-2.5 text-right">Variance</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70 text-xs">
+              <tbody className="divide-y divide-line-subtle text-xs">
                 <tr>
-                  <td className="py-3 font-medium text-slate-900 dark:text-slate-100">Net Realized Revenue</td>
-                  <td className="py-3 text-right font-mono tabular-nums font-semibold">
+                  <td className="py-3 font-medium text-ink">Net Realized Revenue</td>
+                  <td className="py-3 text-right tabular-nums font-semibold">
                     {formatCurrency(comparison.current.netRevenue, settings.currency, settings.numberFormat)}
                   </td>
-                  <td className="py-3 text-right font-mono tabular-nums text-slate-500">
+                  <td className="py-3 text-right tabular-nums text-ink-muted">
                     {formatCurrency(comparison.previous.netRevenue, settings.currency, settings.numberFormat)}
                   </td>
                   <td className="py-3 text-right">
@@ -408,11 +408,11 @@ export default function DeepAnalyticsPage() {
                   </td>
                 </tr>
                 <tr>
-                  <td className="py-3 font-medium text-slate-900 dark:text-slate-100">Gross Revenue (Pre-Discount)</td>
-                  <td className="py-3 text-right font-mono tabular-nums font-semibold">
+                  <td className="py-3 font-medium text-ink">Gross Revenue (Pre-Discount)</td>
+                  <td className="py-3 text-right tabular-nums font-semibold">
                     {formatCurrency(comparison.current.grossRevenue, settings.currency, settings.numberFormat)}
                   </td>
-                  <td className="py-3 text-right font-mono tabular-nums text-slate-500">
+                  <td className="py-3 text-right tabular-nums text-ink-muted">
                     {formatCurrency(comparison.previous.grossRevenue, settings.currency, settings.numberFormat)}
                   </td>
                   <td className="py-3 text-right">
@@ -420,11 +420,11 @@ export default function DeepAnalyticsPage() {
                   </td>
                 </tr>
                 <tr>
-                  <td className="py-3 font-medium text-slate-900 dark:text-slate-100">Total Order Count</td>
-                  <td className="py-3 text-right font-mono tabular-nums font-semibold">
+                  <td className="py-3 font-medium text-ink">Total Order Count</td>
+                  <td className="py-3 text-right tabular-nums font-semibold">
                     {comparison.current.totalOrdersCount.toLocaleString()}
                   </td>
-                  <td className="py-3 text-right font-mono tabular-nums text-slate-500">
+                  <td className="py-3 text-right tabular-nums text-ink-muted">
                     {comparison.previous.totalOrdersCount.toLocaleString()}
                   </td>
                   <td className="py-3 text-right">
@@ -432,11 +432,11 @@ export default function DeepAnalyticsPage() {
                   </td>
                 </tr>
                 <tr>
-                  <td className="py-3 font-medium text-slate-900 dark:text-slate-100">Active Purchasing Customers</td>
-                  <td className="py-3 text-right font-mono tabular-nums font-semibold">
+                  <td className="py-3 font-medium text-ink">Active Purchasing Customers</td>
+                  <td className="py-3 text-right tabular-nums font-semibold">
                     {comparison.current.activeCustomersCount.toLocaleString()}
                   </td>
-                  <td className="py-3 text-right font-mono tabular-nums text-slate-500">
+                  <td className="py-3 text-right tabular-nums text-ink-muted">
                     {comparison.previous.activeCustomersCount.toLocaleString()}
                   </td>
                   <td className="py-3 text-right">
@@ -444,11 +444,11 @@ export default function DeepAnalyticsPage() {
                   </td>
                 </tr>
                 <tr>
-                  <td className="py-3 font-medium text-slate-900 dark:text-slate-100">Average Order Value (AOV)</td>
-                  <td className="py-3 text-right font-mono tabular-nums font-semibold">
+                  <td className="py-3 font-medium text-ink">Average Order Value (AOV)</td>
+                  <td className="py-3 text-right tabular-nums font-semibold">
                     {formatCurrency(comparison.current.averageOrderValue, settings.currency, settings.numberFormat)}
                   </td>
-                  <td className="py-3 text-right font-mono tabular-nums text-slate-500">
+                  <td className="py-3 text-right tabular-nums text-ink-muted">
                     {formatCurrency(comparison.previous.averageOrderValue, settings.currency, settings.numberFormat)}
                   </td>
                   <td className="py-3 text-right">

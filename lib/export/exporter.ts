@@ -16,21 +16,26 @@ export function formatCurrency(
   compact: boolean = false
 ): string {
   const symbol = CURRENCY_SYMBOLS[currency] || '$';
-  if (compact && Math.abs(amount) >= 1_000_000) {
-    return `${symbol}${(amount / 1_000_000).toFixed(2)}M`;
-  }
-  if (compact && Math.abs(amount) >= 10_000) {
-    return `${symbol}${(amount / 1_000).toFixed(1)}K`;
-  }
   try {
+    // Compact form for chart axes and sublabels: $0, $950, $80K, $1.2M.
+    if (compact) {
+      return new Intl.NumberFormat(locale, {
+        style: 'currency',
+        currency,
+        notation: 'compact',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 1,
+      }).format(amount);
+    }
+    // Full form always carries two decimals: $2,387.00.
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency,
-      minimumFractionDigits: amount % 1 === 0 ? 0 : 2,
+      minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
   } catch {
-    return `${symbol}${amount.toLocaleString()}`;
+    return `${symbol}${amount.toFixed(2)}`;
   }
 }
 

@@ -1,72 +1,196 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ------------------------------------------------------------------
+   Semantic design tokens. Components reference these through the
+   Tailwind utilities declared in @theme below (bg-surface-raised,
+   text-ink-muted, border-line, ...). Do not hardcode hex in components.
+   Contrast targets (WCAG 2.2 AA): primary >= 7:1, secondary/muted
+   >= 4.5:1 on every surface, --border >= 3:1 against --surface.
+   ------------------------------------------------------------------ */
 :root {
-  --bg-app: #F8FAFC;
-  --bg-sidebar: #FFFFFF;
-  --bg-card: #FFFFFF;
-  --bg-elevated: #F1F5F9;
-  --text-main: #0F172A;
-  --text-secondary: #64748B;
-  --border-subtle: #E2E8F0;
-  --accent-primary: #2563EB;
-  --accent-hover: #1D4ED8;
-  --status-positive: #059669;
-  --status-warning: #D97706;
-  --status-negative: #DC2626;
+  --surface: #F1F5F9;          /* page background */
+  --surface-raised: #FFFFFF;   /* cards, popovers */
+  --surface-sunken: #E9EEF5;   /* wells, inputs, segmented tracks */
+  --surface-chrome: #FFFFFF;   /* sidebar, top bar */
+  --surface-hover: #E2E8F0;    /* hover + selected fills */
+
+  --text-primary: #0F172A;
+  --text-secondary: #334155;
+  --text-muted: #566579;
+
+  --border: #76859B;           /* card + control outlines */
+  --border-subtle: #D5DCE6;    /* row dividers inside cards */
+
+  --accent: #1D4ED8;           /* links, focus ring, active text */
+  --accent-strong: #2563EB;    /* filled buttons (white text) */
+  --accent-strong-hover: #1D4ED8;
+
+  --success: #047857;
+  --warning: #A14A07;
+  --danger: #B91C1C;
+
+  --chart-1: #2A78D6;
+  --chart-2: #EB6834;
+  --chart-3: #1BAF7A;
+  --chart-4: #EDA100;
+  --chart-5: #E87BA4;
+  --chart-6: #008300;
+  --chart-grid: #D5DCE6;
 }
 
 .dark {
-  --bg-app: #090D18;
-  --bg-sidebar: #0F1625;
-  --bg-card: #141C2D;
-  --bg-elevated: #1B2639;
-  --text-main: #F8FAFC;
-  --text-secondary: #94A3B8;
-  --border-subtle: #273247;
-  --accent-primary: #60A5FA;
-  --accent-hover: #3B82F6;
-  --status-positive: #10B981;
-  --status-warning: #F59E0B;
-  --status-negative: #EF4444;
+  --surface: #090D18;
+  --surface-raised: #161F32;
+  --surface-sunken: #0F1625;
+  --surface-chrome: #0F1625;
+  --surface-hover: #1E2A40;
+
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #A3B0C4;
+
+  --border: #56657F;
+  --border-subtle: #2A3650;
+
+  --accent: #60A5FA;
+  --accent-strong: #2563EB;
+  --accent-strong-hover: #1D4ED8;
+
+  --success: #34D399;
+  --warning: #FBBF24;
+  --danger: #F87171;
+
+  --chart-1: #3987E5;
+  --chart-2: #D95926;
+  --chart-3: #199E70;
+  --chart-4: #C98500;
+  --chart-5: #D55181;
+  --chart-6: #008300;
+  --chart-grid: #2A3650;
 }
 
 @theme inline {
-  --font-display: var(--font-jakarta), sans-serif;
-  --font-sans: var(--font-public-sans), sans-serif;
-  --font-mono: var(--font-jetbrains-mono), monospace;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
-  --color-app: var(--bg-app);
-  --color-sidebar: var(--bg-sidebar);
-  --color-surface: var(--bg-card);
-  --color-elevated: var(--bg-elevated);
-  --color-main: var(--text-main);
-  --color-muted: var(--text-secondary);
-  --color-subtle: var(--border-subtle);
-  --color-accent: var(--accent-primary);
-  --color-accent-hover: var(--accent-hover);
-  --color-positive: var(--status-positive);
-  --color-warning: var(--status-warning);
-  --color-negative: var(--status-negative);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-chrome: var(--surface-chrome);
+  --color-surface-hover: var(--surface-hover);
+
+  --color-ink: var(--text-primary);
+  --color-ink-secondary: var(--text-secondary);
+  --color-ink-muted: var(--text-muted);
+
+  --color-line: var(--border);
+  --color-line-subtle: var(--border-subtle);
+
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-strong-hover: var(--accent-strong-hover);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+
+  /* Legacy aliases (pre-token names) */
+  --color-app: var(--surface);
+  --color-main: var(--text-primary);
+
+  /* Type scale: size / line-height / weight */
+  --text-title: 2rem;
+  --text-title--line-height: 2.5rem;
+  --text-title--font-weight: 600;
+  --text-title--letter-spacing: -0.01em;
+
+  --text-heading: 1rem;
+  --text-heading--line-height: 1.5rem;
+  --text-heading--font-weight: 600;
+
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1rem;
+  --text-caption--font-weight: 500;
+}
+
+/* KPI value: 32/36 bold, scaling down only when its card is too narrow. */
+@utility text-kpi {
+  font-size: clamp(1.375rem, 13cqi, 2rem);
+  line-height: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Uppercase micro-label: 12px, +0.04em tracking. */
+@utility text-micro {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Shared card shell: one radius, one border, one padding. */
+@utility card {
+  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  background-color: var(--surface-raised);
+  padding: 1.5rem;
+}
+
+/* Horizontal-scroll tables keep their first column in view. */
+@utility table-sticky-first {
+  & th:first-child,
+  & td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: var(--surface-raised);
+  }
+  & tbody tr:hover td:first-child {
+    background-color: var(--surface-hover);
+  }
 }
 
 @layer base {
   body {
-    background-color: var(--bg-app);
-    color: var(--text-main);
+    background-color: var(--surface);
+    color: var(--text-primary);
     font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  h1, h2, h3, h4, .font-heading {
-    font-family: var(--font-display);
+  h1, h2, h3, h4 {
     text-wrap: balance;
   }
 
-  .tabular-nums {
+  table,
+  .recharts-text {
     font-variant-numeric: tabular-nums;
   }
+
+  ::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+  }
+}
+
+/* Unlayered on purpose so it wins over `focus:outline-none` utilities. */
+:where(a, button, input, select, textarea, summary, [role="button"], [role="tab"], [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

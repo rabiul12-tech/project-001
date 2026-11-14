@@ -1,5 +1,12 @@
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import './globals.css';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 import { AppInitializer } from '@/components/feedback/AppInitializer';
 
 export const metadata: Metadata = {
@@ -22,9 +29,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" className={`dark ${inter.variable}`} suppressHydrationWarning>
       <body
-        className="min-h-screen bg-app text-main antialiased selection:bg-blue-600/20 selection:text-blue-600 dark:selection:bg-blue-400/20 dark:selection:text-blue-300"
+        className="min-h-screen bg-surface text-ink antialiased selection:bg-accent/25"
         suppressHydrationWarning
       >
         <AppInitializer>{children}</AppInitializer>

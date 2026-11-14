@@ -265,7 +265,7 @@ function CustomersDirectoryContent() {
             <button
               type="button"
               onClick={() => handleExportCustomers(false)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1B2639] transition-colors whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium bg-surface-raised border border-line text-ink-secondary hover:bg-surface-hover transition-colors whitespace-nowrap shrink-0"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export All CSV</span>
@@ -273,7 +273,7 @@ function CustomersDirectoryContent() {
             <button
               type="button"
               onClick={openCreateModal}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Customer</span>
@@ -307,10 +307,10 @@ function CustomersDirectoryContent() {
       </div>
 
       {/* Filter & Bulk Action Toolbar */}
-      <div className="p-4 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="p-4 rounded-xl bg-surface-raised border border-line flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchQuery}
@@ -319,7 +319,7 @@ function CustomersDirectoryContent() {
                 setPage(1);
               }}
               placeholder="Search company, contact, email, country..."
-              className="pl-8 pr-3 py-1.5 w-64 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] text-xs text-slate-900 dark:text-slate-100 focus:outline-none"
+              className="pl-8 pr-3 py-1.5 w-64 rounded-lg bg-surface-sunken border border-line text-xs text-ink focus:outline-none"
             />
           </div>
 
@@ -330,7 +330,7 @@ function CustomersDirectoryContent() {
               setSegmentFilter(e.target.value as CustomerSegment | 'All');
               setPage(1);
             }}
-            className="px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] text-xs text-slate-800 dark:text-slate-200"
+            className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
           >
             <option value="All">All Segments</option>
             <option value="Enterprise">Enterprise</option>
@@ -346,7 +346,7 @@ function CustomersDirectoryContent() {
               setStatusFilter(e.target.value as CustomerStatus | 'All');
               setPage(1);
             }}
-            className="px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] text-xs text-slate-800 dark:text-slate-200"
+            className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
           >
             <option value="All">All Statuses</option>
             <option value="Active">Active</option>
@@ -358,20 +358,20 @@ function CustomersDirectoryContent() {
 
         {selectedIds.length > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-blue-600 dark:text-blue-400 font-semibold">
+            <span className="text-xs tabular-nums text-accent font-semibold">
               {selectedIds.length} selected
             </span>
             <button
               type="button"
               onClick={() => handleExportCustomers(true)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 dark:bg-[#1B2639] text-slate-800 dark:text-slate-200 hover:bg-slate-200"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-hover text-ink-secondary hover:bg-slate-200"
             >
               Export Selected
             </button>
             <button
               type="button"
               onClick={() => setDeleteTargetIds(selectedIds)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-600/10 text-red-600 dark:text-red-400 hover:bg-red-600/20"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-600/10 text-danger hover:bg-red-600/20"
             >
               Delete Selected
             </button>
@@ -392,11 +392,11 @@ function CustomersDirectoryContent() {
           }}
         />
       ) : (
-        <div className="rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] overflow-hidden">
+        <div className="rounded-xl bg-surface-raised border border-line overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-[#273247] bg-slate-50/60 dark:bg-[#0F1625]/60 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                <tr className="border-b border-line bg-surface-sunken/60 text-xs font-semibold text-ink-muted">
                   <th className="py-3 px-4 w-9">
                     <input
                       type="checkbox"
@@ -406,14 +406,14 @@ function CustomersDirectoryContent() {
                         paginatedCustomers.every((c) => selectedIds.includes(c.id))
                       }
                       onChange={toggleSelectAllOnPage}
-                      className="rounded border-slate-300"
+                      className="rounded border-line"
                     />
                   </th>
                   <th className="py-3 px-4">
                     <button
                       type="button"
                       onClick={() => handleSort('company')}
-                      className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-white"
+                      className="inline-flex items-center gap-1 hover:text-ink"
                     >
                       <span>Customer / Company</span>
                       <ArrowUpDown className="w-3 h-3" />
@@ -425,7 +425,7 @@ function CustomersDirectoryContent() {
                     <button
                       type="button"
                       onClick={() => handleSort('ordersCount')}
-                      className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-white"
+                      className="inline-flex items-center gap-1 hover:text-ink"
                     >
                       <span>Orders</span>
                       <ArrowUpDown className="w-3 h-3" />
@@ -435,7 +435,7 @@ function CustomersDirectoryContent() {
                     <button
                       type="button"
                       onClick={() => handleSort('lifetimeSpend')}
-                      className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-white"
+                      className="inline-flex items-center gap-1 hover:text-ink"
                     >
                       <span>Lifetime Spend</span>
                       <ArrowUpDown className="w-3 h-3" />
@@ -445,7 +445,7 @@ function CustomersDirectoryContent() {
                     <button
                       type="button"
                       onClick={() => handleSort('lastOrderDate')}
-                      className="inline-flex items-center gap-1 hover:text-slate-900 dark:hover:text-white"
+                      className="inline-flex items-center gap-1 hover:text-ink"
                     >
                       <span>Last Order</span>
                       <ArrowUpDown className="w-3 h-3" />
@@ -454,12 +454,12 @@ function CustomersDirectoryContent() {
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
+              <tbody className="divide-y divide-line-subtle">
                 {paginatedCustomers.map((cust) => (
                   <tr
                     key={cust.id}
                     onClick={() => setDrawerCustomer(cust)}
-                    className="hover:bg-slate-50 dark:hover:bg-[#1B2639]/60 cursor-pointer transition-colors"
+                    className="hover:bg-surface-hover/60 cursor-pointer transition-colors"
                   >
                     <td
                       className="py-3 px-4"
@@ -470,37 +470,37 @@ function CustomersDirectoryContent() {
                         aria-label={`Select ${cust.company}`}
                         checked={selectedIds.includes(cust.id)}
                         onChange={() => toggleSelectOne(cust.id)}
-                        className="rounded border-slate-300"
+                        className="rounded border-line"
                       />
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2.5">
                         <UserAvatar name={cust.name} size="sm" />
                         <div className="min-w-0">
-                          <div className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                          <div className="font-semibold text-ink truncate">
                             {cust.company}
                           </div>
-                          <div className="text-[11px] text-slate-500 truncate">
+                          <div className="text-xs text-ink-muted truncate">
                             {cust.name} · {cust.email}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                    <td className="py-3 px-4 text-ink-secondary whitespace-nowrap">
                       <span className="font-medium">{cust.segment}</span>
-                      <span className="text-slate-400 mx-1.5">·</span>
-                      <span className="text-slate-500">{cust.country}</span>
+                      <span className="text-ink-muted mx-1.5">·</span>
+                      <span className="text-ink-muted">{cust.country}</span>
                     </td>
                     <td className="py-3 px-4">
                       <StatusBadge status={cust.status} />
                     </td>
-                    <td className="py-3 px-4 text-right font-mono tabular-nums text-slate-700 dark:text-slate-300">
+                    <td className="py-3 px-4 text-right tabular-nums text-ink-secondary">
                       {cust.ordersCount}
                     </td>
-                    <td className="py-3 px-4 text-right font-mono tabular-nums font-semibold text-slate-900 dark:text-slate-100">
+                    <td className="py-3 px-4 text-right tabular-nums font-semibold text-ink">
                       {formatCurrency(cust.lifetimeSpend, settings.currency, settings.numberFormat)}
                     </td>
-                    <td className="py-3 px-4 font-mono tabular-nums text-slate-500 whitespace-nowrap">
+                    <td className="py-3 px-4 tabular-nums text-ink-muted whitespace-nowrap">
                       {formatDateDisplay(cust.lastOrderDate, settings.dateFormat)}
                     </td>
                     <td
@@ -512,7 +512,7 @@ function CustomersDirectoryContent() {
                           type="button"
                           onClick={() => setDrawerCustomer(cust)}
                           aria-label={`View ${cust.company}`}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-[#0F1625]"
+                          className="p-1.5 rounded-lg text-ink-muted hover:text-blue-600 hover:bg-surface-hover"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
@@ -520,7 +520,7 @@ function CustomersDirectoryContent() {
                           type="button"
                           onClick={() => openEditModal(cust)}
                           aria-label={`Edit ${cust.company}`}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#0F1625]"
+                          className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
@@ -528,7 +528,7 @@ function CustomersDirectoryContent() {
                           type="button"
                           onClick={() => setDeleteTargetIds([cust.id])}
                           aria-label={`Delete ${cust.company}`}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-500/10"
+                          className="p-1.5 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-500/10"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -564,75 +564,75 @@ function CustomersDirectoryContent() {
         <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-4 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-medium text-ink-secondary mb-1">
                 Company Name
               </label>
               <input
                 type="text"
                 {...register('company')}
                 placeholder="Vanguard Systems"
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] text-slate-900 dark:text-slate-100"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               />
               {errors.company && (
-                <p className="text-red-500 text-[11px] mt-1">{errors.company.message}</p>
+                <p className="text-danger text-xs mt-1">{errors.company.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-medium text-ink-secondary mb-1">
                 Primary Contact Name
               </label>
               <input
                 type="text"
                 {...register('name')}
                 placeholder="Evelyn Mercer"
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] text-slate-900 dark:text-slate-100"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               />
               {errors.name && (
-                <p className="text-red-500 text-[11px] mt-1">{errors.name.message}</p>
+                <p className="text-danger text-xs mt-1">{errors.name.message}</p>
               )}
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-medium text-ink-secondary mb-1">
                 Corporate Email
               </label>
               <input
                 type="email"
                 {...register('email')}
                 placeholder="evelyn.mercer@vanguard.io"
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] text-slate-900 dark:text-slate-100"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               />
               {errors.email && (
-                <p className="text-red-500 text-[11px] mt-1">{errors.email.message}</p>
+                <p className="text-danger text-xs mt-1">{errors.email.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-medium text-ink-secondary mb-1">
                 Phone Number
               </label>
               <input
                 type="text"
                 {...register('phone')}
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] text-slate-900 dark:text-slate-100"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               />
               {errors.phone && (
-                <p className="text-red-500 text-[11px] mt-1">{errors.phone.message}</p>
+                <p className="text-danger text-xs mt-1">{errors.phone.message}</p>
               )}
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-medium text-ink-secondary mb-1">
                 Segment Tier
               </label>
               <select
                 {...register('segment')}
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] text-slate-900 dark:text-slate-100"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               >
                 <option value="Enterprise">Enterprise</option>
                 <option value="Mid-Market">Mid-Market</option>
@@ -642,12 +642,12 @@ function CustomersDirectoryContent() {
             </div>
 
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-medium text-ink-secondary mb-1">
                 Account Status
               </label>
               <select
                 {...register('status')}
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] text-slate-900 dark:text-slate-100"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               >
                 <option value="Active">Active</option>
                 <option value="Onboarding">Onboarding</option>
@@ -657,29 +657,29 @@ function CustomersDirectoryContent() {
             </div>
 
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-medium text-ink-secondary mb-1">
                 Country
               </label>
               <input
                 type="text"
                 {...register('country')}
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] text-slate-900 dark:text-slate-100"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               />
               {errors.country && (
-                <p className="text-red-500 text-[11px] mt-1">{errors.country.message}</p>
+                <p className="text-danger text-xs mt-1">{errors.country.message}</p>
               )}
             </div>
           </div>
 
           <div>
-            <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-medium text-ink-secondary mb-1">
               Executive Account Notes
             </label>
             <textarea
               rows={3}
               {...register('notes')}
               placeholder="Contract renewal schedule, SLA terms, or billing contacts..."
-              className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] text-slate-900 dark:text-slate-100"
+              className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
             />
           </div>
 
@@ -687,13 +687,13 @@ function CustomersDirectoryContent() {
             <button
               type="button"
               onClick={() => setModalOpen(false)}
-              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-[#273247] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#1B2639]"
+              className="px-4 py-2 rounded-lg border border-line text-ink-secondary hover:bg-surface-hover"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+              className="px-4 py-2 rounded-lg bg-accent-strong hover:bg-accent-strong-hover text-white font-semibold"
             >
               {editingCustomer ? 'Save Changes' : 'Create Customer'}
             </button>
@@ -739,14 +739,14 @@ function CustomersDirectoryContent() {
                   setDrawerCustomer(null);
                   openEditModal(target);
                 }}
-                className="px-3.5 py-2 rounded-lg text-xs font-medium bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] text-slate-700 dark:text-slate-200"
+                className="px-3.5 py-2 rounded-lg text-xs font-medium bg-surface-raised border border-line text-ink-secondary"
               >
                 Edit Profile
               </button>
               <button
                 type="button"
                 onClick={() => setDrawerCustomer(null)}
-                className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-blue-600 text-white"
+                className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent-strong text-white"
               >
                 Done
               </button>
@@ -757,80 +757,80 @@ function CustomersDirectoryContent() {
         {drawerCustomer && (
           <div className="space-y-6 text-xs">
             <div className="grid grid-cols-3 gap-3">
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]">
-                <div className="text-slate-500">Lifetime Spend</div>
-                <div className="text-base font-bold font-mono tabular-nums text-slate-900 dark:text-slate-100 mt-1">
+              <div className="p-3.5 rounded-xl bg-surface-sunken border border-line">
+                <div className="text-ink-muted">Lifetime Spend</div>
+                <div className="text-heading tabular-nums text-ink mt-1">
                   {formatCurrency(drawerCustomer.lifetimeSpend, settings.currency, settings.numberFormat)}
                 </div>
               </div>
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]">
-                <div className="text-slate-500">Total Orders</div>
-                <div className="text-base font-bold font-mono tabular-nums text-slate-900 dark:text-slate-100 mt-1">
+              <div className="p-3.5 rounded-xl bg-surface-sunken border border-line">
+                <div className="text-ink-muted">Total Orders</div>
+                <div className="text-heading tabular-nums text-ink mt-1">
                   {drawerCustomer.ordersCount}
                 </div>
               </div>
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]">
-                <div className="text-slate-500">Average Order</div>
-                <div className="text-base font-bold font-mono tabular-nums text-slate-900 dark:text-slate-100 mt-1">
+              <div className="p-3.5 rounded-xl bg-surface-sunken border border-line">
+                <div className="text-ink-muted">Average Order</div>
+                <div className="text-heading tabular-nums text-ink mt-1">
                   {formatCurrency(drawerCustomer.averageOrderValue, settings.currency, settings.numberFormat)}
                 </div>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] space-y-2">
+            <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-2">
               <div className="flex justify-between">
-                <span className="text-slate-500">Primary Contact:</span>
-                <span className="font-medium text-slate-900 dark:text-slate-100">{drawerCustomer.name}</span>
+                <span className="text-ink-muted">Primary Contact:</span>
+                <span className="font-medium text-ink">{drawerCustomer.name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Email:</span>
-                <span className="font-mono text-slate-700 dark:text-slate-300">{drawerCustomer.email}</span>
+                <span className="text-ink-muted">Email:</span>
+                <span className="tabular-nums text-ink-secondary">{drawerCustomer.email}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Phone:</span>
-                <span className="font-mono text-slate-700 dark:text-slate-300">{drawerCustomer.phone}</span>
+                <span className="text-ink-muted">Phone:</span>
+                <span className="tabular-nums text-ink-secondary">{drawerCustomer.phone}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Status:</span>
+                <span className="text-ink-muted">Status:</span>
                 <StatusBadge status={drawerCustomer.status} />
               </div>
               {drawerCustomer.notes && (
-                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+                <div className="pt-2 border-t border-line-subtle text-ink-muted">
                   {drawerCustomer.notes}
                 </div>
               )}
             </div>
 
             <div className="space-y-2.5">
-              <h3 className="font-bold text-slate-900 dark:text-slate-100">
+              <h3 className="font-bold text-ink">
                 Customer Purchase History ({drawerCustomerOrders.length} Orders)
               </h3>
               {drawerCustomerOrders.length === 0 ? (
-                <p className="text-slate-500">No orders recorded for this account yet.</p>
+                <p className="text-ink-muted">No orders recorded for this account yet.</p>
               ) : (
-                <div className="rounded-xl border border-slate-200 dark:border-[#273247] overflow-hidden">
+                <div className="rounded-xl border border-line overflow-hidden">
                   <table className="w-full text-left border-collapse">
                     <thead>
-                      <tr className="border-b border-slate-200 dark:border-[#273247] bg-slate-50 dark:bg-[#0F1625] text-[11px] text-slate-500">
+                      <tr className="border-b border-line bg-surface-sunken text-xs text-ink-muted">
                         <th className="py-2 px-3">Order #</th>
                         <th className="py-2 px-3">Date</th>
                         <th className="py-2 px-3">Status</th>
                         <th className="py-2 px-3 text-right">Total</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tbody className="divide-y divide-line-subtle">
                       {drawerCustomerOrders.map((ord) => (
                         <tr key={ord.id}>
-                          <td className="py-2.5 px-3 font-mono font-semibold text-blue-600 dark:text-blue-400">
+                          <td className="py-2.5 px-3 tabular-nums font-semibold text-accent">
                             {ord.orderNumber}
                           </td>
-                          <td className="py-2.5 px-3 font-mono tabular-nums text-slate-500">
+                          <td className="py-2.5 px-3 tabular-nums text-ink-muted">
                             {formatDateDisplay(ord.orderDate, settings.dateFormat)}
                           </td>
                           <td className="py-2.5 px-3">
                             <StatusBadge status={ord.paymentStatus} />
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono tabular-nums font-semibold">
+                          <td className="py-2.5 px-3 text-right tabular-nums font-semibold">
                             {formatCurrency(ord.totalAmount, settings.currency, settings.numberFormat)}
                           </td>
                         </tr>
@@ -849,7 +849,7 @@ function CustomersDirectoryContent() {
 
 export default function CustomersPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-xs text-slate-500">Loading customer directory...</div>}>
+    <Suspense fallback={<div className="p-8 text-xs text-ink-muted">Loading customer directory...</div>}>
       <CustomersDirectoryContent />
     </Suspense>
   );

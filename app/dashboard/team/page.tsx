@@ -131,7 +131,7 @@ export default function TeamManagementPage() {
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>Add Demo Member</span>
@@ -140,18 +140,18 @@ export default function TeamManagementPage() {
       />
 
       {/* Simulated Role Preview Banner */}
-      <div className="p-5 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="p-5 rounded-xl bg-surface-raised border border-line flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-semibold text-blue-600 dark:text-blue-400">
+          <div className="flex items-center gap-2 text-xs font-semibold text-accent">
             <SlidersHorizontal className="w-4 h-4" />
             <span>Interactive Role Preview Switcher (Simulated Frontend Demonstration)</span>
           </div>
-          <p className="text-xs text-slate-600 dark:text-slate-400 max-w-3xl leading-relaxed">
+          <p className="text-xs text-ink-muted max-w-3xl leading-relaxed">
             Because Aurelix Analytics operates entirely client-side without a backend authentication server, roles are simulated to demonstrate how multi-role interfaces and audit attributions adapt. Switching to <strong>Viewer</strong> demonstrates read-only guardrails on customer creation.
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] shrink-0">
+        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-sunken border border-line shrink-0">
           {(['Owner', 'Admin', 'Analyst', 'Viewer'] as const).map((r) => (
             <button
               key={r}
@@ -159,8 +159,8 @@ export default function TeamManagementPage() {
               onClick={() => setActiveRolePreview(r)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                 settings.activeRolePreview === r
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-accent-strong text-white shadow-xs'
+                  : 'text-ink-muted hover:text-ink'
               }`}
             >
               {r}
@@ -174,20 +174,20 @@ export default function TeamManagementPage() {
         {ROLE_DESCRIPTIONS.map((item) => (
           <div
             key={item.role}
-            className="p-5 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] flex flex-col justify-between gap-3"
+            className="p-5 rounded-xl bg-surface-raised border border-line flex flex-col justify-between gap-3"
           >
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                <span className="text-sm font-bold text-ink">
                   {item.role}
                 </span>
-                <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <Shield className="w-4 h-4 text-accent" />
               </div>
-              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              <p className="text-xs text-ink-muted leading-relaxed">
                 {item.summary}
               </p>
             </div>
-            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] font-mono text-slate-500">
+            <div className="pt-2 border-t border-line-subtle text-xs tabular-nums text-ink-muted">
               {item.scope}
             </div>
           </div>
@@ -195,12 +195,12 @@ export default function TeamManagementPage() {
       </div>
 
       {/* Team Member Roster */}
-      <div className="rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] overflow-hidden">
-        <div className="p-5 border-b border-slate-200 dark:border-[#273247]">
-          <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
+      <div className="rounded-xl bg-surface-raised border border-line overflow-hidden">
+        <div className="p-5 border-b border-line">
+          <h2 className="text-heading text-ink">
             Workspace Team Roster
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-ink-muted">
             Assign simulated roles or edit profile details
           </p>
         </div>
@@ -208,7 +208,7 @@ export default function TeamManagementPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-[#273247] bg-slate-50/60 dark:bg-[#0F1625]/60 text-[11px] font-semibold text-slate-500">
+              <tr className="border-b border-line bg-surface-sunken/60 text-xs font-semibold text-ink-muted">
                 <th className="py-3 px-4">Member</th>
                 <th className="py-3 px-4">Title · Department</th>
                 <th className="py-3 px-4">Assigned Role</th>
@@ -217,25 +217,25 @@ export default function TeamManagementPage() {
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
+            <tbody className="divide-y divide-line-subtle">
               {team.map((member) => (
-                <tr key={member.id} className="hover:bg-slate-50 dark:hover:bg-[#1B2639]/50">
+                <tr key={member.id} className="hover:bg-surface-hover/50">
                   <td className="py-3.5 px-4">
                     <div className="flex items-center gap-3">
                       <UserAvatar name={member.name} src={member.avatarUrl} size="md" />
                       <div>
-                        <div className="font-semibold text-slate-900 dark:text-slate-100">
+                        <div className="font-semibold text-ink">
                           {member.name}
                         </div>
-                        <div className="font-mono text-[11px] text-slate-500">{member.email}</div>
+                        <div className="tabular-nums text-xs text-ink-muted">{member.email}</div>
                       </div>
                     </div>
                   </td>
                   <td className="py-3.5 px-4">
-                    <div className="font-medium text-slate-800 dark:text-slate-200">
+                    <div className="font-medium text-ink-secondary">
                       {member.title}
                     </div>
-                    <div className="text-[11px] text-slate-500">{member.department}</div>
+                    <div className="text-xs text-ink-muted">{member.department}</div>
                   </td>
                   <td className="py-3.5 px-4">
                     <select
@@ -244,7 +244,7 @@ export default function TeamManagementPage() {
                       onChange={(e) =>
                         updateTeamMember(member.id, { role: e.target.value as TeamRole })
                       }
-                      className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] font-mono text-xs font-semibold text-blue-600 dark:text-blue-400"
+                      className="px-2.5 py-1 rounded-lg bg-surface-sunken border border-line tabular-nums text-xs font-semibold text-accent"
                     >
                       <option value="Owner">Owner</option>
                       <option value="Admin">Admin</option>
@@ -255,7 +255,7 @@ export default function TeamManagementPage() {
                   <td className="py-3.5 px-4">
                     <StatusBadge status={member.status} />
                   </td>
-                  <td className="py-3.5 px-4 font-mono tabular-nums text-slate-500">
+                  <td className="py-3.5 px-4 tabular-nums text-ink-muted">
                     {formatDateDisplay(member.joinedAt, settings.dateFormat)}
                   </td>
                   <td className="py-3.5 px-4 text-right whitespace-nowrap">
@@ -264,7 +264,7 @@ export default function TeamManagementPage() {
                         type="button"
                         onClick={() => openEditModal(member)}
                         aria-label={`Edit ${member.name}`}
-                        className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-[#0F1625]"
+                        className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
@@ -273,7 +273,7 @@ export default function TeamManagementPage() {
                           type="button"
                           onClick={() => setRemoveTarget(member)}
                           aria-label={`Remove ${member.name}`}
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-red-500/10"
+                          className="p-1.5 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-500/10"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -289,12 +289,12 @@ export default function TeamManagementPage() {
 
       {/* Permission Comparison Table & Team Activity Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-8 p-6 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] space-y-4">
+        <div className="lg:col-span-8 p-6 rounded-xl bg-surface-raised border border-line space-y-4">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
+            <h2 className="text-heading text-ink">
               Role Permission Comparison Matrix
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-ink-muted">
               Capabilities mapped across Owner, Admin, Analyst, and Viewer roles
             </p>
           </div>
@@ -302,7 +302,7 @@ export default function TeamManagementPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-[#273247] text-[11px] font-semibold text-slate-500">
+                <tr className="border-b border-line text-xs font-semibold text-ink-muted">
                   <th className="py-2.5 pr-4">Workspace Capability</th>
                   <th className="py-2.5 px-3 text-center">Owner</th>
                   <th className="py-2.5 px-3 text-center">Admin</th>
@@ -310,18 +310,18 @@ export default function TeamManagementPage() {
                   <th className="py-2.5 pl-3 text-center">Viewer</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-line-subtle">
                 {PERMISSION_MATRIX.map((row) => (
                   <tr key={row.capability}>
-                    <td className="py-3 pr-4 font-medium text-slate-800 dark:text-slate-200">
+                    <td className="py-3 pr-4 font-medium text-ink-secondary">
                       {row.capability}
                     </td>
                     {(['Owner', 'Admin', 'Analyst', 'Viewer'] as const).map((r) => (
                       <td key={r} className="py-3 px-3 text-center">
                         {row[r] ? (
-                          <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mx-auto" />
+                          <Check className="w-4 h-4 text-success mx-auto" />
                         ) : (
-                          <Minus className="w-4 h-4 text-slate-300 dark:text-slate-600 mx-auto" />
+                          <Minus className="w-4 h-4 text-ink-muted mx-auto" />
                         )}
                       </td>
                     ))}
@@ -332,12 +332,12 @@ export default function TeamManagementPage() {
           </div>
         </div>
 
-        <div className="lg:col-span-4 p-6 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] space-y-4">
+        <div className="lg:col-span-4 p-6 rounded-xl bg-surface-raised border border-line space-y-4">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
+            <h2 className="text-heading text-ink">
               Team Activity Summary
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-ink-muted">
               Recent actions attributed to team members
             </p>
           </div>
@@ -345,17 +345,17 @@ export default function TeamManagementPage() {
             {activities.slice(0, 5).map((act) => (
               <div
                 key={act.id}
-                className="p-3 rounded-xl bg-slate-50 dark:bg-[#0F1625] border border-slate-200/70 dark:border-[#273247] text-xs space-y-1"
+                className="p-3 rounded-xl bg-surface-sunken border border-line text-xs space-y-1"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                  <span className="font-semibold text-ink">
                     {act.actorName}
                   </span>
-                  <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400">
+                  <span className="tabular-nums text-xs text-accent">
                     {act.actorRole}
                   </span>
                 </div>
-                <div className="text-slate-600 dark:text-slate-400">{act.action} · {act.targetName}</div>
+                <div className="text-ink-muted">{act.action} · {act.targetName}</div>
               </div>
             ))}
           </div>
@@ -371,43 +371,43 @@ export default function TeamManagementPage() {
       >
         <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-4 text-xs">
           <div>
-            <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-medium text-ink-secondary mb-1">
               Full Name
             </label>
             <input
               type="text"
               {...register('name')}
               placeholder="Soren Bergstrom"
-              className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+              className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
             />
             {errors.name && (
-              <p className="text-red-500 text-[11px] mt-1">{errors.name.message}</p>
+              <p className="text-danger text-xs mt-1">{errors.name.message}</p>
             )}
           </div>
 
           <div>
-            <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+            <label className="block font-medium text-ink-secondary mb-1">
               Corporate Email
             </label>
             <input
               type="email"
               {...register('email')}
               placeholder="soren.bergstrom@aurelix.io"
-              className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+              className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
             />
             {errors.email && (
-              <p className="text-red-500 text-[11px] mt-1">{errors.email.message}</p>
+              <p className="text-danger text-xs mt-1">{errors.email.message}</p>
             )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-medium text-ink-secondary mb-1">
                 Simulated Role
               </label>
               <select
                 {...register('role')}
-                className="w-full px-2.5 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+                className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line"
               >
                 <option value="Owner">Owner</option>
                 <option value="Admin">Admin</option>
@@ -417,30 +417,30 @@ export default function TeamManagementPage() {
             </div>
 
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-medium text-ink-secondary mb-1">
                 Job Title
               </label>
               <input
                 type="text"
                 {...register('title')}
-                className="w-full px-2.5 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+                className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line"
               />
               {errors.title && (
-                <p className="text-red-500 text-[11px] mt-1">{errors.title.message}</p>
+                <p className="text-danger text-xs mt-1">{errors.title.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-medium text-ink-secondary mb-1">
                 Department
               </label>
               <input
                 type="text"
                 {...register('department')}
-                className="w-full px-2.5 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+                className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line"
               />
               {errors.department && (
-                <p className="text-red-500 text-[11px] mt-1">{errors.department.message}</p>
+                <p className="text-danger text-xs mt-1">{errors.department.message}</p>
               )}
             </div>
           </div>
@@ -449,13 +449,13 @@ export default function TeamManagementPage() {
             <button
               type="button"
               onClick={() => setModalOpen(false)}
-              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-[#273247]"
+              className="px-4 py-2 rounded-lg border border-line"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+              className="px-4 py-2 rounded-lg bg-accent-strong hover:bg-accent-strong-hover text-white font-semibold"
             >
               {editingMember ? 'Save Profile' : 'Add Member'}
             </button>

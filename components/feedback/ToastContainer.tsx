@@ -27,23 +27,23 @@ export function ToastContainer() {
 
         const iconColor =
           t.variant === 'success'
-            ? 'text-emerald-600 dark:text-emerald-400'
+            ? 'text-success'
             : t.variant === 'warning'
-            ? 'text-amber-600 dark:text-amber-400'
+            ? 'text-warning'
             : t.variant === 'error'
-            ? 'text-red-600 dark:text-red-400'
-            : 'text-blue-600 dark:text-blue-400';
+            ? 'text-danger'
+            : 'text-accent';
 
         return (
           <div
             key={t.id}
-            className="pointer-events-auto flex items-start gap-3 p-3.5 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] shadow-lg text-slate-900 dark:text-slate-100 transition-all duration-150"
+            className="pointer-events-auto flex items-start gap-3 p-3.5 rounded-xl bg-surface-raised border border-line shadow-lg text-ink transition-all duration-150"
           >
             <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${iconColor}`} />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold leading-tight">{t.title}</p>
               {t.description && (
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
+                <p className="text-xs text-ink-muted mt-1 leading-relaxed">
                   {t.description}
                 </p>
               )}
@@ -52,7 +52,7 @@ export function ToastContainer() {
               type="button"
               onClick={() => dismissToast(t.id)}
               aria-label="Dismiss notification"
-              className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 p-0.5 rounded transition-colors"
+              className="text-ink-muted hover:text-ink p-0.5 rounded transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>

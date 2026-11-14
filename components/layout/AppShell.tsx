@@ -130,40 +130,40 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const isIconOnly = !isMobile && collapsed;
 
     return (
-      <div className="flex flex-col h-full bg-white dark:bg-[#0F1625] border-r border-slate-200 dark:border-[#273247] select-none">
+      <div className="flex flex-col h-full bg-surface-chrome border-r border-line select-none">
         {/* Brand & Workspace Switcher */}
-        <div className="p-3.5 border-b border-slate-200 dark:border-[#273247] relative">
+        <div className="p-4 border-b border-line relative">
           <button
             type="button"
             onClick={() => setWorkspaceMenuOpen((v) => !v)}
             title="Switch workspace unit"
             className={`w-full flex items-center ${
               isIconOnly ? 'justify-center' : 'justify-between'
-            } gap-2.5 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#1B2639] transition-colors text-left`}
+            } gap-3 p-2 rounded-xl hover:bg-surface-hover transition-colors text-left`}
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 text-white font-mono font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-accent-strong text-white tabular-nums font-bold text-xs flex items-center justify-center shrink-0 shadow-xs">
                 {settings.companyLogoText || 'AX'}
               </div>
               {!isIconOnly && (
                 <div className="min-w-0">
-                  <div className="text-xs font-bold text-slate-900 dark:text-slate-50 truncate">
+                  <div className="text-xs font-bold text-ink truncate">
                     AURELIX
                   </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                  <div className="text-xs text-ink-muted truncate">
                     {settings.workspaceName}
                   </div>
                 </div>
               )}
             </div>
             {!isIconOnly && (
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <ChevronDown className="w-3.5 h-3.5 text-ink-muted shrink-0" />
             )}
           </button>
 
           {workspaceMenuOpen && (
-            <div className="absolute left-3 right-3 top-full mt-1 z-40 p-1.5 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] shadow-xl space-y-1">
-              <div className="px-2.5 py-1 text-[11px] font-semibold text-slate-400">
+            <div className="absolute left-3 right-3 top-full mt-1 z-40 p-2 rounded-xl bg-surface-raised border border-line shadow-xl space-y-1">
+              <div className="px-3 py-1 text-xs font-semibold text-ink-muted">
                 Select Operating Entity
               </div>
               {WORKSPACE_UNITS.map((unit) => (
@@ -174,16 +174,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     updateSettings({ workspaceName: unit.name });
                     setWorkspaceMenuOpen(false);
                   }}
-                  className={`w-full flex items-start gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs transition-colors ${
+                  className={`w-full flex items-start gap-3 px-3 py-2 rounded-lg text-left text-xs transition-colors ${
                     settings.workspaceName === unit.name
-                      ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold'
-                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#1B2639]'
+                      ? 'bg-blue-600/10 text-accent font-semibold'
+                      : 'text-ink-secondary hover:bg-surface-hover'
                   }`}
                 >
-                  <Building2 className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                  <Building2 className="w-3.5 h-3.5 mt-1 shrink-0" />
                   <div className="min-w-0">
                     <div className="truncate">{unit.name}</div>
-                    <div className="text-[10px] text-slate-400">{unit.region}</div>
+                    <div className="text-xs text-ink-muted">{unit.region}</div>
                   </div>
                 </button>
               ))}
@@ -199,7 +199,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {NAV_GROUPS.map((group) => (
             <div key={group.title} className="space-y-1">
               {!isIconOnly && (
-                <div className="px-2.5 pb-1 text-[11px] font-semibold tracking-wider text-slate-400 dark:text-slate-500">
+                <div className="px-3 pb-1 text-caption font-semibold text-ink-muted">
                   {group.title}
                 </div>
               )}
@@ -214,10 +214,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     title={isIconOnly ? item.label : undefined}
                     className={`flex items-center ${
                       isIconOnly ? 'justify-center px-2' : 'px-3'
-                    } py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                    } py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                       active
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-[#1B2639]'
+                        ? 'bg-accent-strong text-white shadow-xs'
+                        : 'text-ink-secondary hover:text-ink hover:bg-surface-hover'
                     }`}
                   >
                     <Icon className="w-4 h-4 shrink-0" />
@@ -230,12 +230,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* Bottom User Profile & Collapse Control */}
-        <div className="p-3 border-t border-slate-200 dark:border-[#273247] space-y-2">
+        <div className="p-3 border-t border-line space-y-2">
           {!isIconOnly && (
-            <div className="px-2.5 py-2 rounded-lg bg-slate-50 dark:bg-[#141C2D] border border-slate-200/80 dark:border-[#273247] flex items-center justify-between gap-2">
+            <div className="px-3 py-2 rounded-lg bg-surface-raised border border-line flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <Shield className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-                <span className="text-[11px] text-slate-600 dark:text-slate-400 truncate">
+                <Shield className="w-3.5 h-3.5 text-accent shrink-0" />
+                <span className="text-xs text-ink-muted truncate">
                   Role Preview:
                 </span>
               </div>
@@ -243,7 +243,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 aria-label="Simulated role preview"
                 value={settings.activeRolePreview}
                 onChange={(e) => setActiveRolePreview(e.target.value as TeamRole)}
-                className="bg-transparent text-[11px] font-mono font-semibold text-blue-600 dark:text-blue-400 focus:outline-none cursor-pointer"
+                className="bg-transparent text-xs tabular-nums font-semibold text-accent cursor-pointer rounded-sm"
               >
                 <option value="Owner">Owner</option>
                 <option value="Admin">Admin</option>
@@ -256,7 +256,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center justify-between gap-2">
             <Link
               href="/dashboard/settings"
-              className={`flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#1B2639] transition-colors min-w-0 flex-1 ${
+              className={`flex items-center gap-3 p-2 rounded-lg hover:bg-surface-hover transition-colors min-w-0 flex-1 ${
                 isIconOnly ? 'justify-center' : ''
               }`}
               title={`${settings.personalName} · ${settings.personalTitle}`}
@@ -268,10 +268,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               />
               {!isIconOnly && (
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">
+                  <div className="text-xs font-semibold text-ink truncate">
                     {settings.personalName}
                   </div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                  <div className="text-xs text-ink-muted truncate">
                     {settings.personalTitle}
                   </div>
                 </div>
@@ -284,7 +284,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 onClick={() => setSidebarCollapsed(!collapsed)}
                 aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                 title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                className="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1B2639] transition-colors shrink-0"
+                className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover transition-colors shrink-0"
               >
                 {collapsed ? (
                   <PanelLeftOpen className="w-4 h-4" />
@@ -300,14 +300,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-screen flex bg-[#F8FAFC] dark:bg-[#090D18] text-slate-900 dark:text-slate-50">
+    <div className="min-h-screen flex bg-surface text-ink">
       {/* Desktop Sidebar */}
       <aside
-        className={`hidden lg:block shrink-0 transition-all duration-150 no-print ${
+        className={`hidden lg:block shrink-0 sticky top-0 h-screen self-start transition-all duration-150 no-print ${
           collapsed ? 'w-[72px]' : 'w-[248px]'
         }`}
       >
-        <div className="sticky top-0 h-screen">{renderSidebarContent(false)}</div>
+        {renderSidebarContent(false)}
       </aside>
 
       {/* Mobile Slide-Out Drawer */}
@@ -323,7 +323,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               type="button"
               onClick={() => setMobileNavOpen(false)}
               aria-label="Close navigation menu"
-              className="absolute top-4 right-3 z-20 p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-[#1B2639]"
+              className="absolute top-4 right-3 z-20 p-2 rounded-lg text-ink-muted hover:bg-surface-hover"
             >
               <X className="w-4 h-4" />
             </button>
@@ -335,14 +335,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Topbar */}
-        <header className="sticky top-0 z-30 h-16 px-4 sm:px-6 bg-white/95 dark:bg-[#0F1625]/95 backdrop-blur-md border-b border-slate-200 dark:border-[#273247] flex items-center justify-between gap-4 no-print">
+        <header className="sticky top-0 z-30 h-16 px-4 md:px-6 lg:px-8 bg-surface-chrome/95 backdrop-blur-md border-b border-line flex items-center justify-between gap-4 no-print">
           {/* Left: Mobile Menu + Breadcrumbs */}
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setMobileNavOpen(true)}
               aria-label="Open navigation menu"
-              className="lg:hidden p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#1B2639]"
+              className="lg:hidden p-2 rounded-lg text-ink-secondary hover:bg-surface-hover"
             >
               <Menu className="w-5 h-5" />
             </button>
@@ -350,28 +350,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs min-w-0">
               <Link
                 href="/"
-                className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors hidden sm:inline whitespace-nowrap"
+                className="text-ink-muted hover:text-ink transition-colors hidden sm:inline whitespace-nowrap"
               >
                 Aurelix
               </Link>
-              <span className="text-slate-300 dark:text-slate-600 hidden sm:inline">/</span>
-              <span className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+              <span aria-hidden="true" className="text-ink-muted hidden sm:inline">/</span>
+              <span className="font-semibold text-ink truncate">
                 {currentTitle}
               </span>
             </nav>
           </div>
 
           {/* Right Controls */}
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-3 shrink-0">
             {/* Global Search / Command Palette Trigger */}
             <button
               type="button"
               onClick={() => setCommandPaletteOpen(true)}
-              className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] text-xs text-slate-500 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-raised border border-line text-xs text-ink-muted hover:bg-surface-hover transition-colors"
             >
-              <Search className="w-3.5 h-3.5 text-slate-400" />
+              <Search className="w-3.5 h-3.5 text-ink-muted" />
               <span className="hidden md:inline">Search or jump to...</span>
-              <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-white dark:bg-[#0F1625] rounded border border-slate-200 dark:border-[#273247] text-slate-500 dark:text-slate-400">
+              <kbd className="hidden sm:inline-block px-2 py-1 text-xs tabular-nums bg-surface-chrome rounded border border-line text-ink-muted">
                 ⌘K
               </kbd>
             </button>
@@ -390,21 +390,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   setProfileMenuOpen(false);
                 }}
                 aria-label="View notifications"
-                className="p-2 rounded-lg border border-slate-200 dark:border-[#273247] bg-white dark:bg-[#141C2D] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1B2639] transition-colors"
+                className="p-2 rounded-lg border border-line bg-surface-raised text-ink-secondary hover:bg-surface-hover transition-colors"
               >
                 <Bell className="w-4 h-4" />
               </button>
 
               {notifMenuOpen && (
-                <div className="absolute right-0 mt-2 w-80 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] shadow-xl p-3 z-40 space-y-2.5">
-                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                <div className="absolute right-0 mt-2 w-80 rounded-xl bg-surface-raised border border-line shadow-xl p-3 z-40 space-y-3">
+                  <div className="flex items-center justify-between border-b border-line-subtle pb-2">
+                    <span className="text-xs font-bold text-ink">
                       Operational Alerts
                     </span>
                     <Link
                       href="/dashboard/activity"
                       onClick={() => setNotifMenuOpen(false)}
-                      className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
+                      className="text-xs text-accent hover:underline"
                     >
                       View all activity
                     </Link>
@@ -417,14 +417,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           setNotifMenuOpen(false);
                           router.push(`/dashboard/orders?search=${recentHighValue.orderNumber}`);
                         }}
-                        className="w-full text-left p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-[#1B2639] transition-colors"
+                        className="w-full text-left p-2 rounded-lg hover:bg-surface-hover transition-colors"
                       >
-                        <div className="font-semibold text-slate-900 dark:text-slate-100">
+                        <div className="font-semibold text-ink">
                           High-Value Settlement: {recentHighValue.orderNumber}
                         </div>
-                        <div className="text-slate-500 dark:text-slate-400 mt-0.5">
+                        <div className="text-ink-muted mt-1">
                           {recentHighValue.customerCompany} ·{' '}
-                          <span className="font-mono tabular-nums">
+                          <span className="tabular-nums">
                             {formatCurrency(recentHighValue.totalAmount, settings.currency)}
                           </span>
                         </div>
@@ -438,12 +438,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           setNotifMenuOpen(false);
                           router.push('/dashboard/products');
                         }}
-                        className="w-full text-left p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-[#1B2639] transition-colors"
+                        className="w-full text-left p-2 rounded-lg hover:bg-surface-hover transition-colors"
                       >
-                        <div className="font-semibold text-amber-600 dark:text-amber-400">
+                        <div className="font-semibold text-warning">
                           Inventory Threshold Alert
                         </div>
-                        <div className="text-slate-500 dark:text-slate-400 mt-0.5">
+                        <div className="text-ink-muted mt-1">
                           {lowStockCount} catalog SKUs are currently in Low Stock status.
                         </div>
                       </button>
@@ -456,14 +456,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           setNotifMenuOpen(false);
                           router.push(`/dashboard/orders?search=${recentRefund.orderNumber}`);
                         }}
-                        className="w-full text-left p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-[#1B2639] transition-colors"
+                        className="w-full text-left p-2 rounded-lg hover:bg-surface-hover transition-colors"
                       >
-                        <div className="font-semibold text-slate-900 dark:text-slate-100">
+                        <div className="font-semibold text-ink">
                           Simulated Credit Memo: {recentRefund.orderNumber}
                         </div>
-                        <div className="text-slate-500 dark:text-slate-400 mt-0.5">
+                        <div className="text-ink-muted mt-1">
                           Refunded{' '}
-                          <span className="font-mono tabular-nums">
+                          <span className="tabular-nums">
                             {formatCurrency(recentRefund.refundedAmount, settings.currency)}
                           </span>{' '}
                           to {recentRefund.customerCompany}
@@ -481,12 +481,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onClick={toggleTheme}
               aria-label={`Switch to ${settings.theme === 'dark' ? 'light' : 'dark'} mode`}
               title={`Switch to ${settings.theme === 'dark' ? 'light' : 'dark'} mode`}
-              className="p-2 rounded-lg border border-slate-200 dark:border-[#273247] bg-white dark:bg-[#141C2D] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#1B2639] transition-colors"
+              className="p-2 rounded-lg border border-line bg-surface-raised text-ink-secondary hover:bg-surface-hover transition-colors"
             >
               {settings.theme === 'dark' ? (
                 <Sun className="w-4 h-4 text-amber-400" />
               ) : (
-                <Moon className="w-4 h-4 text-slate-700" />
+                <Moon className="w-4 h-4 text-ink-secondary" />
               )}
             </button>
 
@@ -499,33 +499,33 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   setNotifMenuOpen(false);
                 }}
                 aria-label="Open user menu"
-                className="flex items-center gap-2 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#1B2639] transition-colors"
+                className="flex items-center gap-2 p-1 rounded-lg hover:bg-surface-hover transition-colors"
               >
                 <UserAvatar
                   name={settings.personalName}
                   src="/images/avatar_claire_vance_1794569123724.jpg"
                   size="sm"
                 />
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
+                <ChevronDown className="w-3.5 h-3.5 text-ink-muted hidden sm:block" />
               </button>
 
               {profileMenuOpen && (
-                <div className="absolute right-0 mt-2 w-60 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] shadow-xl p-2 z-40 space-y-1 text-xs">
-                  <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800">
-                    <div className="font-bold text-slate-900 dark:text-slate-100">
+                <div className="absolute right-0 mt-2 w-60 rounded-xl bg-surface-raised border border-line shadow-xl p-2 z-40 space-y-1 text-xs">
+                  <div className="px-3 py-2 border-b border-line-subtle">
+                    <div className="font-bold text-ink">
                       {settings.personalName}
                     </div>
-                    <div className="text-slate-500 dark:text-slate-400 truncate">
+                    <div className="text-ink-muted truncate">
                       {settings.personalEmail}
                     </div>
-                    <div className="mt-1 text-[11px] font-mono text-blue-600 dark:text-blue-400">
+                    <div className="mt-1 text-xs tabular-nums text-accent">
                       Active Role: {settings.activeRolePreview}
                     </div>
                   </div>
                   <Link
                     href="/dashboard/settings"
                     onClick={() => setProfileMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1B2639]"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-ink-secondary hover:bg-surface-hover"
                   >
                     <Settings className="w-3.5 h-3.5" />
                     <span>Workspace Settings</span>
@@ -533,7 +533,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Link
                     href="/dashboard/team"
                     onClick={() => setProfileMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#1B2639]"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-ink-secondary hover:bg-surface-hover"
                   >
                     <UserCheck className="w-3.5 h-3.5" />
                     <span>Team & Role Preview</span>
@@ -544,7 +544,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       resetDemoData();
                       setProfileMenuOpen(false);
                     }}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 text-left"
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-warning hover:bg-amber-500/10 text-left"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Reset Demo Dataset</span>
@@ -552,7 +552,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Link
                     href="/"
                     onClick={() => setProfileMenuOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-[#1B2639]"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-ink-muted hover:bg-surface-hover"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>Return to Product Overview</span>
@@ -564,15 +564,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Mobile/Tablet Date Range Bar */}
-        <div className="xl:hidden px-4 sm:px-6 py-2.5 bg-white dark:bg-[#0F1625] border-b border-slate-200 dark:border-[#273247] flex items-center justify-between gap-2 overflow-x-auto no-print">
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 whitespace-nowrap">
+        <div className="xl:hidden px-4 md:px-6 lg:px-8 py-2 bg-surface-chrome border-b border-line flex items-center justify-between gap-2 overflow-x-auto no-print">
+          <span className="text-xs font-medium text-ink-muted whitespace-nowrap">
             Reporting Window:
           </span>
           <DateRangePicker />
         </div>
 
         {/* Page Viewport */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-6">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-6">
           {children}
         </main>
       </div>

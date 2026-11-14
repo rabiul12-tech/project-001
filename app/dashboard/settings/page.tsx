@@ -112,93 +112,93 @@ export default function SettingsPage() {
       <form onSubmit={handleSaveSettings} className="space-y-6 text-xs">
         {/* Personal Profile & Workspace Identity */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="p-6 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] space-y-4">
+          <div className="p-6 rounded-xl bg-surface-raised border border-line space-y-4">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
+              <h2 className="text-heading text-ink">
                 Personal Executive Profile
               </h2>
-              <p className="text-slate-500">
+              <p className="text-ink-muted">
                 Used for report attributions and activity audit logs
               </p>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block font-medium text-ink-secondary mb-1">
                   Full Name
                 </label>
                 <input
                   type="text"
                   value={personalName}
                   onChange={(e) => setPersonalName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
                 />
               </div>
 
               <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block font-medium text-ink-secondary mb-1">
                   Corporate Email
                 </label>
                 <input
                   type="email"
                   value={personalEmail}
                   onChange={(e) => setPersonalEmail(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
                 />
               </div>
 
               <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block font-medium text-ink-secondary mb-1">
                   Executive Title
                 </label>
                 <input
                   type="text"
                   value={personalTitle}
                   onChange={(e) => setPersonalTitle(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
                 />
               </div>
             </div>
           </div>
 
-          <div className="p-6 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] space-y-4">
+          <div className="p-6 rounded-xl bg-surface-raised border border-line space-y-4">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
+              <h2 className="text-heading text-ink">
                 Workspace & Brand Identity
               </h2>
-              <p className="text-slate-500">
+              <p className="text-ink-muted">
                 Configure organization name, domain, and sidebar monogram
               </p>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                <label className="block font-medium text-ink-secondary mb-1">
                   Workspace Name
                 </label>
                 <input
                   type="text"
                   value={workspaceName}
                   onChange={(e) => setWorkspaceName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+                  className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block font-medium text-ink-secondary mb-1">
                     Company Domain
                   </label>
                   <input
                     type="text"
                     value={companyDomain}
                     onChange={(e) => setCompanyDomain(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] font-mono"
+                    className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block font-medium text-ink-secondary mb-1">
                     Company Logo Monogram
                   </label>
                   <input
@@ -206,7 +206,7 @@ export default function SettingsPage() {
                     maxLength={4}
                     value={companyLogoText}
                     onChange={(e) => setCompanyLogoText(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] font-mono uppercase"
+                    className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums uppercase"
                   />
                 </div>
               </div>
@@ -215,18 +215,18 @@ export default function SettingsPage() {
         </div>
 
         {/* Regional Formatting & Display Currency */}
-        <div className="p-6 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] space-y-4">
+        <div className="p-6 rounded-xl bg-surface-raised border border-line space-y-4">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
+            <h2 className="text-heading text-ink">
               Currency, Date & Number Formatting
             </h2>
-            <p className="text-slate-500">
+            <p className="text-ink-muted">
               Configure display localization across all KPIs, charts, and exported reports
             </p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-2.5 text-slate-700 dark:text-slate-300">
-            <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+          <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-2.5 text-ink-secondary">
+            <Info className="w-4 h-4 text-accent mt-0.5 shrink-0" />
             <span>
               <strong>Display Currency Notice:</strong> Changing the display currency updates currency symbols and formatting across the workspace for the demo dataset. It does not silently convert underlying ledger amounts using invented foreign exchange rates.
             </span>
@@ -234,13 +234,13 @@ export default function SettingsPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-medium text-ink-secondary mb-1">
                 Display Currency
               </label>
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] font-mono"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
               >
                 <option value="USD">USD ($) — US Dollar</option>
                 <option value="EUR">EUR (€) — Euro</option>
@@ -251,7 +251,7 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-medium text-ink-secondary mb-1">
                 Language Display
               </label>
               <select
@@ -261,7 +261,7 @@ export default function SettingsPage() {
                     e.target.value as 'English (US)' | 'English (UK)' | 'Deutsch' | 'Français'
                   )
                 }
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
               >
                 <option value="English (US)">English (US)</option>
                 <option value="English (UK)">English (UK)</option>
@@ -271,13 +271,13 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-medium text-ink-secondary mb-1">
                 Date Format
               </label>
               <select
                 value={dateFormat}
                 onChange={(e) => setDateFormat(e.target.value as DateFormatOption)}
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] font-mono"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
               >
                 <option value="MMM d, yyyy">Nov 13, 2026 (MMM d, yyyy)</option>
                 <option value="dd/MM/yyyy">13/11/2026 (dd/MM/yyyy)</option>
@@ -286,13 +286,13 @@ export default function SettingsPage() {
             </div>
 
             <div>
-              <label className="block font-medium text-slate-700 dark:text-slate-300 mb-1">
+              <label className="block font-medium text-ink-secondary mb-1">
                 Number Formatting Locale
               </label>
               <select
                 value={numberFormat}
                 onChange={(e) => setNumberFormat(e.target.value as NumberFormatOption)}
-                className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] font-mono"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
               >
                 <option value="en-US">1,234,567.89 (en-US)</option>
                 <option value="en-GB">1,234,567.89 (en-GB)</option>
@@ -304,12 +304,12 @@ export default function SettingsPage() {
 
         {/* Theme, Sidebar & Notification Preferences */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="p-6 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] space-y-4">
+          <div className="p-6 rounded-xl bg-surface-raised border border-line space-y-4">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
+              <h2 className="text-heading text-ink">
                 Interface Theme & Sidebar Behavior
               </h2>
-              <p className="text-slate-500">
+              <p className="text-ink-muted">
                 Immediate visual updates with persistent LocalStorage state
               </p>
             </div>
@@ -320,8 +320,8 @@ export default function SettingsPage() {
                 onClick={() => setTheme('light')}
                 className={`p-4 rounded-xl border flex items-center gap-3 transition-colors ${
                   settings.theme === 'light'
-                    ? 'border-blue-600 bg-blue-600/5 text-blue-600 font-semibold'
-                    : 'border-slate-200 dark:border-[#273247] text-slate-600 dark:text-slate-300'
+                    ? 'border-blue-600 bg-blue-600/5 text-accent font-semibold'
+                    : 'border-line text-ink-secondary'
                 }`}
               >
                 <Sun className="w-4 h-4" />
@@ -334,7 +334,7 @@ export default function SettingsPage() {
                 className={`p-4 rounded-xl border flex items-center gap-3 transition-colors ${
                   settings.theme === 'dark'
                     ? 'border-blue-400 bg-blue-400/10 text-blue-400 font-semibold'
-                    : 'border-slate-200 dark:border-[#273247] text-slate-600 dark:text-slate-300'
+                    : 'border-line text-ink-secondary'
                 }`}
               >
                 <Moon className="w-4 h-4" />
@@ -344,10 +344,10 @@ export default function SettingsPage() {
 
             <div className="pt-2 flex items-center justify-between">
               <div>
-                <div className="font-semibold text-slate-900 dark:text-slate-100">
+                <div className="font-semibold text-ink">
                   Compact Icon-Only Sidebar
                 </div>
-                <div className="text-slate-500">
+                <div className="text-ink-muted">
                   Collapse desktop navigation to 72px width
                 </div>
               </div>
@@ -360,12 +360,12 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="p-6 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] space-y-4">
+          <div className="p-6 rounded-xl bg-surface-raised border border-line space-y-4">
             <div>
-              <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
+              <h2 className="text-heading text-ink">
                 Notification Preferences
               </h2>
-              <p className="text-slate-500">
+              <p className="text-ink-muted">
                 Configure which operational events trigger workspace alerts
               </p>
             </div>
@@ -417,7 +417,7 @@ export default function SettingsPage() {
         <div className="flex justify-end">
           <button
             type="submit"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-xs transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent-strong hover:bg-accent-strong-hover text-white font-semibold shadow-xs transition-colors"
           >
             <Save className="w-4 h-4" />
             <span>Save All Workspace Preferences</span>
@@ -426,19 +426,19 @@ export default function SettingsPage() {
       </form>
 
       {/* Data Management: Export Backup, Import Backup, Reset Demo Data */}
-      <div className="p-6 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] space-y-4">
+      <div className="p-6 rounded-xl bg-surface-raised border border-line space-y-4">
         <div className="flex items-center gap-2">
-          <Database className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-          <h2 className="text-base font-bold text-slate-900 dark:text-slate-50">
+          <Database className="w-4 h-4 text-accent" />
+          <h2 className="text-heading text-ink">
             LocalStorage Data Management, JSON Backup & Reset
           </h2>
         </div>
-        <p className="text-xs text-slate-500 max-w-3xl leading-relaxed">
+        <p className="text-xs text-ink-muted max-w-3xl leading-relaxed">
           Export your entire workspace state (customers, products, orders, reports, activity logs, and settings) as a portable JSON file, restore from a validated backup, or reset to the clean deterministic seed dataset.
         </p>
 
         {importError && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-600 dark:text-red-400">
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-danger">
             {importError}
           </div>
         )}
@@ -447,7 +447,7 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={handleExportBackup}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-slate-900 dark:bg-[#1B2639] text-white hover:bg-blue-600 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-slate-900 dark:bg-surface-hover text-white hover:bg-blue-600 transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export Full Backup (JSON)</span>
@@ -463,7 +463,7 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-slate-100 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-[#1B2639] transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-surface-sunken border border-line text-ink-secondary hover:bg-surface-hover transition-colors"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>Import Backup (JSON)</span>
@@ -472,7 +472,7 @@ export default function SettingsPage() {
           <button
             type="button"
             onClick={() => setConfirmResetOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-red-600/10 text-red-600 dark:text-red-400 hover:bg-red-600/20 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-red-600/10 text-danger hover:bg-red-600/20 transition-colors"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset Demo Dataset</span>

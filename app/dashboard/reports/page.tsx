@@ -226,7 +226,7 @@ export default function ReportingCenterPage() {
             <button
               type="button"
               onClick={handlePrintReport}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#1B2639] transition-colors whitespace-nowrap shrink-0 no-print"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium bg-surface-raised border border-line text-ink-secondary hover:bg-surface-hover transition-colors whitespace-nowrap shrink-0 no-print"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>Print Statement</span>
@@ -234,7 +234,7 @@ export default function ReportingCenterPage() {
             <button
               type="button"
               onClick={handleDownloadCsv}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors whitespace-nowrap shrink-0 no-print"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0 no-print"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Download CSV ({previewData.rows.length} rows)</span>
@@ -248,11 +248,11 @@ export default function ReportingCenterPage() {
         {savedReports.map((tpl) => (
           <div
             key={tpl.id}
-            className="p-4 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] flex flex-col justify-between gap-3"
+            className="p-4 rounded-xl bg-surface-raised border border-line flex flex-col justify-between gap-3"
           >
             <div className="space-y-1">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] font-mono text-blue-600 dark:text-blue-400 font-semibold">
+                <span className="text-xs tabular-nums text-accent font-semibold">
                   {tpl.type}
                 </span>
                 {savedReports.length > 1 && (
@@ -260,14 +260,14 @@ export default function ReportingCenterPage() {
                     type="button"
                     onClick={() => deleteReportConfig(tpl.id)}
                     aria-label={`Delete template ${tpl.name}`}
-                    className="text-slate-400 hover:text-red-500 p-0.5"
+                    className="text-ink-muted hover:text-red-500 p-0.5"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
-              <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100">{tpl.name}</h3>
-              <p className="text-[11px] text-slate-500">
+              <h3 className="text-xs font-bold text-ink">{tpl.name}</h3>
+              <p className="text-xs text-ink-muted">
                 Window: {tpl.dateRangePreset.toUpperCase()} · Channel: {tpl.channelFilter}
               </p>
             </div>
@@ -282,7 +282,7 @@ export default function ReportingCenterPage() {
                 setPaymentFilter(tpl.paymentStatusFilter);
                 addToast('Template loaded', `Applied "${tpl.name}" filters.`, 'default');
               }}
-              className="w-full py-1.5 px-3 rounded-lg bg-slate-100 dark:bg-[#1B2639] hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-200 text-xs font-medium transition-colors inline-flex items-center justify-center gap-1.5"
+              className="w-full py-1.5 px-3 rounded-lg bg-surface-hover hover:bg-blue-600 hover:text-white text-ink-secondary text-xs font-medium transition-colors inline-flex items-center justify-center gap-1.5"
             >
               <Play className="w-3 h-3" />
               <span>Load Template</span>
@@ -292,18 +292,18 @@ export default function ReportingCenterPage() {
       </div>
 
       {/* Report Configuration Builder */}
-      <div className="p-5 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] space-y-4 no-print">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+      <div className="p-5 rounded-xl bg-surface-raised border border-line space-y-4 no-print">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line-subtle pb-3">
           <div className="flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+            <FileSpreadsheet className="w-4 h-4 text-accent" />
+            <h2 className="text-sm font-bold text-ink">
               Report Builder & Filter Parameters
             </h2>
           </div>
           <button
             type="button"
             onClick={handleSaveTemplate}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 dark:bg-[#1B2639] text-slate-800 dark:text-slate-200 hover:bg-slate-200 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-hover text-ink-secondary hover:bg-slate-200 transition-colors"
           >
             <BookmarkPlus className="w-3.5 h-3.5" />
             <span>Save Configuration as Template</span>
@@ -312,25 +312,25 @@ export default function ReportingCenterPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 text-xs">
           <div className="lg:col-span-2">
-            <label className="block text-[11px] font-medium text-slate-500 mb-1">
+            <label className="block text-xs font-medium text-ink-muted mb-1">
               Report Title
             </label>
             <input
               type="text"
               value={reportName}
               onChange={(e) => setReportName(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+              className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-slate-500 mb-1">
+            <label className="block text-xs font-medium text-ink-muted mb-1">
               Report Model
             </label>
             <select
               value={reportType}
               onChange={(e) => setReportType(e.target.value as ReportType)}
-              className="w-full px-2.5 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+              className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line"
             >
               <option value="Revenue Ledger">Revenue Ledger</option>
               <option value="Sales Summary">Sales Summary</option>
@@ -340,13 +340,13 @@ export default function ReportingCenterPage() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-slate-500 mb-1">
+            <label className="block text-xs font-medium text-ink-muted mb-1">
               Date Range
             </label>
             <select
               value={preset}
               onChange={(e) => setPreset(e.target.value as DateRangePreset)}
-              className="w-full px-2.5 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+              className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line"
             >
               <option value="7d">Last 7 Days</option>
               <option value="30d">Last 30 Days</option>
@@ -358,13 +358,13 @@ export default function ReportingCenterPage() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-slate-500 mb-1">
+            <label className="block text-xs font-medium text-ink-muted mb-1">
               Sales Channel
             </label>
             <select
               value={channelFilter}
               onChange={(e) => setChannelFilter(e.target.value as SalesChannel | 'All')}
-              className="w-full px-2.5 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+              className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line"
             >
               <option value="All">All Channels</option>
               <option value="Direct Enterprise">Direct Enterprise</option>
@@ -375,13 +375,13 @@ export default function ReportingCenterPage() {
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-slate-500 mb-1">
+            <label className="block text-xs font-medium text-ink-muted mb-1">
               Payment Status
             </label>
             <select
               value={paymentFilter}
               onChange={(e) => setPaymentFilter(e.target.value as PaymentStatus | 'All')}
-              className="w-full px-2.5 py-2 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247]"
+              className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line"
             >
               <option value="All">All Statuses</option>
               <option value="Paid">Paid Only</option>
@@ -394,21 +394,21 @@ export default function ReportingCenterPage() {
         {preset === 'custom' && (
           <div className="flex flex-wrap items-center gap-4 pt-2 text-xs">
             <label className="flex items-center gap-2">
-              <span className="text-slate-500">Start:</span>
+              <span className="text-ink-muted">Start:</span>
               <input
                 type="date"
                 value={customStart}
                 onChange={(e) => setCustomStart(e.target.value)}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] font-mono"
+                className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line tabular-nums"
               />
             </label>
             <label className="flex items-center gap-2">
-              <span className="text-slate-500">End:</span>
+              <span className="text-ink-muted">End:</span>
               <input
                 type="date"
                 value={customEnd}
                 onChange={(e) => setCustomEnd(e.target.value)}
-                className="px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-[#0F1625] border border-slate-200 dark:border-[#273247] font-mono"
+                className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line tabular-nums"
               />
             </label>
           </div>
@@ -416,23 +416,23 @@ export default function ReportingCenterPage() {
       </div>
 
       {/* Live Report Preview Card (Print-friendly) */}
-      <div className="rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] overflow-hidden">
-        <div className="p-5 border-b border-slate-200 dark:border-[#273247] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="rounded-xl bg-surface-raised border border-line overflow-hidden">
+        <div className="p-5 border-b border-line flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="text-[11px] font-mono text-blue-600 dark:text-blue-400">
+            <div className="text-xs tabular-nums text-accent">
               LIVE REPORT PREVIEW · {reportType.toUpperCase()}
             </div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-50 mt-0.5">
+            <h2 className="text-heading text-ink mt-0.5">
               {reportName}
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-ink-muted">
               Showing top 25 of {previewData.rows.length} matching records · Prepared by{' '}
               {settings.personalName}
             </p>
           </div>
           <div className="text-right">
-            <div className="text-xs text-slate-500">Total Reconciled Volume</div>
-            <div className="text-xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
+            <div className="text-xs text-ink-muted">Total Reconciled Volume</div>
+            <div className="text-xl font-bold tabular-nums text-success">
               {formatCurrency(previewData.totalRevenue, settings.currency, settings.numberFormat)}
             </div>
           </div>
@@ -441,7 +441,7 @@ export default function ReportingCenterPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-[#273247] bg-slate-50/60 dark:bg-[#0F1625]/60 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+              <tr className="border-b border-line bg-surface-sunken/60 text-xs font-semibold text-ink-muted">
                 {previewData.headers.map((h) => (
                   <th key={h} className="py-2.5 px-3.5 whitespace-nowrap">
                     {h}
@@ -449,14 +449,14 @@ export default function ReportingCenterPage() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
+            <tbody className="divide-y divide-line-subtle">
               {previewData.rows.slice(0, 25).map((row, rIdx) => (
-                <tr key={rIdx} className="hover:bg-slate-50 dark:hover:bg-[#1B2639]/50">
+                <tr key={rIdx} className="hover:bg-surface-hover/50">
                   {row.map((cell, cIdx) => (
                     <td
                       key={cIdx}
                       className={`py-2.5 px-3.5 whitespace-nowrap ${
-                        typeof cell === 'number' ? 'font-mono tabular-nums' : ''
+                        typeof cell === 'number' ? 'tabular-nums' : ''
                       }`}
                     >
                       {typeof cell === 'number' && cIdx >= row.length - 3
@@ -472,14 +472,14 @@ export default function ReportingCenterPage() {
       </div>
 
       {/* Locally Generated Report History */}
-      <div className="p-5 rounded-xl bg-white dark:bg-[#141C2D] border border-slate-200 dark:border-[#273247] space-y-3 no-print">
-        <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+      <div className="p-5 rounded-xl bg-surface-raised border border-line space-y-3 no-print">
+        <h2 className="text-sm font-bold text-ink">
           Generated Report History (Persisted Locally)
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="border-b border-slate-200 dark:border-[#273247] text-[11px] text-slate-500">
+              <tr className="border-b border-line text-xs text-ink-muted">
                 <th className="py-2 pr-4">Report Name</th>
                 <th className="py-2 px-4">Type</th>
                 <th className="py-2 px-4">Generated By</th>
@@ -488,26 +488,26 @@ export default function ReportingCenterPage() {
                 <th className="py-2 pl-4 text-right">Reconciled Revenue</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-line-subtle">
               {reportHistory.map((item) => (
                 <tr key={item.id}>
-                  <td className="py-2.5 pr-4 font-semibold text-slate-900 dark:text-slate-100">
+                  <td className="py-2.5 pr-4 font-semibold text-ink">
                     {item.reportName}{' '}
-                    <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400 ml-1">
+                    <span className="tabular-nums text-xs text-accent ml-1">
                       [{item.format}]
                     </span>
                   </td>
-                  <td className="py-2.5 px-4 text-slate-500">{item.type}</td>
-                  <td className="py-2.5 px-4 text-slate-600 dark:text-slate-300">
+                  <td className="py-2.5 px-4 text-ink-muted">{item.type}</td>
+                  <td className="py-2.5 px-4 text-ink-secondary">
                     {item.generatedBy}
                   </td>
-                  <td className="py-2.5 px-4 font-mono tabular-nums text-slate-500">
+                  <td className="py-2.5 px-4 tabular-nums text-ink-muted">
                     {formatDateDisplay(item.generatedAt, settings.dateFormat)}
                   </td>
-                  <td className="py-2.5 px-4 text-right font-mono tabular-nums">
+                  <td className="py-2.5 px-4 text-right tabular-nums">
                     {item.rowCount}
                   </td>
-                  <td className="py-2.5 pl-4 text-right font-mono tabular-nums font-semibold text-emerald-600 dark:text-emerald-400">
+                  <td className="py-2.5 pl-4 text-right tabular-nums font-semibold text-success">
                     {formatCurrency(item.totalRevenueReported, settings.currency, settings.numberFormat)}
                   </td>
                 </tr>
