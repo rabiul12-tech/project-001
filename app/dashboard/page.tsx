@@ -13,6 +13,7 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useNowMs, useTodayLabel } from '@/lib/useClock';
 import {
   buildRevenueTimeSeries,
   calculateExecutiveComparison,
@@ -94,9 +95,11 @@ export default function ExecutiveOverviewPage() {
 
   const [chartMode, setChartMode] = useState<'area' | 'bar' | 'line'>('area');
 
+  const todayLabel = useTodayLabel();
+  const now = useNowMs();
   const dateWindow = useMemo(
-    () => resolveDateWindow(datePreset, customStartDate, customEndDate),
-    [datePreset, customStartDate, customEndDate]
+    () => resolveDateWindow(datePreset, customStartDate, customEndDate, new Date(now).toISOString()),
+    [datePreset, customStartDate, customEndDate, now]
   );
 
   const kpiComparison = useMemo(
@@ -178,7 +181,7 @@ export default function ExecutiveOverviewPage() {
       <PageHeader
         title={`Welcome back, ${settings.personalName.split(' ')[0]}`}
         subtitle={`Executive command center for ${settings.workspaceName}. All KPIs reconcile directly with the active ${dateWindow.days}-day ledger window.`}
-        meta="Friday, November 13, 2026"
+        meta={todayLabel}
         actions={
           <>
             <button

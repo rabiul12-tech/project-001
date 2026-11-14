@@ -10,6 +10,7 @@ import {
   Play,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useNowMs } from '@/lib/useClock';
 import {
   calculateProductPerformance,
   enrichCustomersWithMetrics,
@@ -42,19 +43,24 @@ export default function ReportingCenterPage() {
   const deleteReportConfig = useAppStore((s) => s.deleteReportConfig);
   const recordGeneratedReport = useAppStore((s) => s.recordGeneratedReport);
   const addToast = useAppStore((s) => s.addToast);
+  const defaultStart = useAppStore((s) => s.customStartDate);
+  const defaultEnd = useAppStore((s) => s.customEndDate);
 
   const [reportName, setReportName] = useState('Q4 Executive Revenue & Channel Audit');
   const [reportType, setReportType] = useState<ReportType>('Revenue Ledger');
   const [preset, setPreset] = useState<DateRangePreset>('90d');
-  const [customStart, setCustomStart] = useState('2026-08-15');
-  const [customEnd, setCustomEnd] = useState('2026-11-13');
+  const [customStartInput, setCustomStart] = useState<string | null>(null);
+  const [customEndInput, setCustomEnd] = useState<string | null>(null);
+  const customStart = customStartInput ?? defaultStart;
+  const customEnd = customEndInput ?? defaultEnd;
+  const now = useNowMs();
   const [channelFilter, setChannelFilter] = useState<SalesChannel | 'All'>('All');
   const [categoryFilter, setCategoryFilter] = useState<ProductCategory | 'All'>('All');
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatus | 'All'>('All');
 
   const windowRange = useMemo(
-    () => resolveDateWindow(preset, customStart, customEnd),
-    [preset, customStart, customEnd]
+    () => resolveDateWindow(preset, customStart, customEnd, new Date(now).toISOString()),
+    [preset, customStart, customEnd, now]
   );
 
   const filteredOrders = useMemo(() => {

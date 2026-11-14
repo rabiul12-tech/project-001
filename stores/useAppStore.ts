@@ -25,8 +25,8 @@ import {
 import {
   CURRENT_SCHEMA_VERSION,
   generateDeterministicSeedData,
-  REFERENCE_NOW_ISO,
 } from '@/lib/demo-data/seed';
+import { defaultCustomRange, goLive, nowIso as clockNowIso } from '@/lib/clock';
 import {
   loadFromLocalStorage,
   resetLocalStorageToSeed,
@@ -46,6 +46,7 @@ interface AppStoreState {
   hydrationStatus: 'hydrated' | 'seeded' | 'migrated' | 'corrupt_recovered';
   recoveryAlertMessage: string | null;
   storageQuotaError: string | null;
+  seededAt: string;
 
   customers: Customer[];
   products: Product[];
@@ -133,12 +134,13 @@ interface AppStoreState {
 }
 
 const initialSeed = generateDeterministicSeedData();
+const initialRange = defaultCustomRange();
 
 function buildSnapshotFromState(state: AppStoreState): AurelixStorageSchema {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    seededAt: initialSeed.seededAt,
-    lastUpdatedAt: new Date().toISOString(),
+    seededAt: state.seededAt,
+    lastUpdatedAt: clockNowIso(),
     customers: state.customers,
     products: state.products,
     orders: state.orders,
@@ -161,7 +163,7 @@ function createActivityRecord(
 ): ActivityEvent {
   return {
     id: `act_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-    timestamp: new Date().toISOString(),
+    timestamp: clockNowIso(),
     actorName: state.settings.personalName || 'Claire Vance',
     actorRole: state.settings.activeRolePreview || 'Owner',
     category,
@@ -177,6 +179,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
   hydrationStatus: 'seeded',
   recoveryAlertMessage: null,
   storageQuotaError: null,
+  seededAt: initialSeed.seededAt,
 
   customers: initialSeed.customers,
   products: initialSeed.products,
@@ -189,17 +192,23 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
   settings: initialSeed.settings,
 
   datePreset: '30d',
-  customStartDate: '2026-10-14',
-  customEndDate: '2026-11-13',
+  customStartDate: initialRange.start,
+  customEndDate: initialRange.end,
   commandPaletteOpen: false,
   mobileNavOpen: false,
   globalSearchQuery: '',
   toasts: [],
 
   hydrateStore: () => {
+    // First client-side moment: from here on the clock is the visitor's real time.
+    goLive();
     const result = loadFromLocalStorage();
+    const range = defaultCustomRange();
     set({
       isHydrated: true,
+      seededAt: result.data.seededAt,
+      customStartDate: range.start,
+      customEndDate: range.end,
       hydrationStatus: result.status,
       recoveryAlertMessage: result.errorMessage || null,
       customers: result.data.customers,
@@ -292,7 +301,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
     const newCustomer: Customer = {
       ...values,
       id: `cust_${Date.now()}`,
-      createdAt: new Date(REFERENCE_NOW_ISO).toISOString(),
+      createdAt: clockNowIso(),
     };
     const event = createActivityRecord(
       state,
@@ -376,7 +385,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
 
   addProduct: (values) => {
     const state = get();
-    const nowIso = new Date().toISOString();
+    const nowIso = clockNowIso();
     const prefix = values.sku.slice(0, 3).toUpperCase() || 'ENT';
     const newProduct: Product = {
       ...values,
@@ -403,7 +412,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
 
   updateProduct: (id, values) => {
     const state = get();
-    const nowIso = new Date().toISOString();
+    const nowIso = clockNowIso();
     // Crucial requirement: updating a product's unitPrice does NOT mutate historical order line items
     const products = state.products.map((p) =>
       p.id === id ? { ...p, ...values, updatedAt: nowIso } : p
@@ -426,7 +435,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
     const state = get();
     const idSet = new Set(ids);
     const products = state.products.map((p) =>
-      idSet.has(p.id) ? { ...p, status: 'Archived' as const, updatedAt: new Date().toISOString() } : p
+      idSet.has(p.id) ? { ...p, status: 'Archived' as const, updatedAt: clockNowIso() } : p
     );
     const event = createActivityRecord(
       state,
@@ -482,7 +491,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       customerName: customer.name,
       customerEmail: customer.email,
       customerCompany: customer.company,
-      orderDate: new Date(REFERENCE_NOW_ISO).toISOString(),
+      orderDate: clockNowIso(),
       lineItems,
       subtotal: totals.subtotal,
       discountAmount: totals.discountAmount,
@@ -669,7 +678,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
 
   saveReportConfig: (config) => {
     const state = get();
-    const nowIso = new Date().toISOString();
+    const nowIso = clockNowIso();
     const newConfig: SavedReportConfig = {
       ...config,
       id: `rep_cfg_${Date.now()}`,
@@ -707,7 +716,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
     const newRecord: GeneratedReportRecord = {
       ...record,
       id: `rep_hist_${Date.now()}`,
-      generatedAt: new Date().toISOString(),
+      generatedAt: clockNowIso(),
       generatedBy: state.settings.personalName || 'Claire Vance',
     };
     const reportHistory = [newRecord, ...state.reportHistory];
@@ -725,7 +734,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
 
   addTeamMember: (values) => {
     const state = get();
-    const nowIso = new Date().toISOString();
+    const nowIso = clockNowIso();
     const newMember: TeamMember = {
       ...values,
       id: `team_${Date.now()}`,
@@ -811,7 +820,11 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
 
   resetDemoData: () => {
     const fresh = resetLocalStorageToSeed();
+    const range = defaultCustomRange();
     set({
+      seededAt: fresh.seededAt,
+      customStartDate: range.start,
+      customEndDate: range.end,
       customers: fresh.customers,
       products: fresh.products,
       orders: fresh.orders,
@@ -840,6 +853,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
     }
     const d = res.data;
     set({
+      seededAt: d.seededAt,
       customers: d.customers,
       products: d.products,
       orders: d.orders,

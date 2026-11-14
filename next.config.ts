@@ -2,6 +2,10 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Inlined into server and client bundles: the pre-hydration value of lib/clock.ts.
+  env: {
+    NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },

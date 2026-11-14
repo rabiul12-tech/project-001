@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { generateDeterministicSeedData, REFERENCE_NOW_ISO } from '@/lib/demo-data/seed';
+import { generateDeterministicSeedData } from '@/lib/demo-data/seed';
+import { nowMs } from '@/lib/clock';
 import {
   loadFromLocalStorage,
   resetLocalStorageToSeed,
@@ -393,8 +394,8 @@ describe('AURELIX Analytics — Comprehensive Business Logic & Workflow Suite (2
     const emptySummary = calculateFinancialSummary(
       [],
       [],
-      new Date(REFERENCE_NOW_ISO).getTime(),
-      new Date(REFERENCE_NOW_ISO).getTime()
+      nowMs(),
+      nowMs()
     );
     expect(emptySummary.netRevenue).toBe(0);
     expect(emptySummary.averageOrderValue).toBe(0);

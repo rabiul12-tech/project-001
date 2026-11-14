@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { Download, Filter, Info } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useNowMs } from '@/lib/useClock';
 import {
   buildRevenueTimeSeries,
   calculateExecutiveComparison,
@@ -39,9 +40,10 @@ export default function DeepAnalyticsPage() {
   const [chartType, setChartType] = useState<'area' | 'bar' | 'line'>('area');
   const [activeMetric, setActiveMetric] = useState<'netRevenue' | 'grossRevenue' | 'orders' | 'aov'>('netRevenue');
 
+  const now = useNowMs();
   const dateWindow = useMemo(
-    () => resolveDateWindow(datePreset, customStartDate, customEndDate),
-    [datePreset, customStartDate, customEndDate]
+    () => resolveDateWindow(datePreset, customStartDate, customEndDate, new Date(now).toISOString()),
+    [datePreset, customStartDate, customEndDate, now]
   );
 
   const filteredOrders = useMemo(() => {

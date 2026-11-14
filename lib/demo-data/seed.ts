@@ -18,9 +18,9 @@ import {
   DailySessionMetric,
   WorkspaceSettings,
 } from '@/types';
+import { nowMs } from '@/lib/clock';
 
 export const CURRENT_SCHEMA_VERSION = 1;
-export const REFERENCE_NOW_ISO = '2026-11-13T10:00:00.000Z';
 
 // Mulberry32 deterministic PRNG
 function createRng(seed: number) {
@@ -210,10 +210,17 @@ function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-export function generateDeterministicSeedData(): AurelixStorageSchema {
+/**
+ * Every date is an offset from `now`, so the dataset always ends at the current
+ * time and nothing is dated in the future. The random draws are fixed, so two
+ * runs differ only by the shift of `now`.
+ */
+export function generateDeterministicSeedData(now: number = nowMs()): AurelixStorageSchema {
   const rng = createRng(20261113);
-  const baseDateMs = new Date(REFERENCE_NOW_ISO).getTime();
+  const baseDateMs = now;
   const oneDayMs = 86400 * 1000;
+  const ago = (days: number, hours = 0, minutes = 0) =>
+    new Date(baseDateMs - ((days * 24 + hours) * 60 + minutes) * 60000).toISOString();
 
   // 1. Generate 250 Customers
   const customers: Customer[] = [];
@@ -442,8 +449,8 @@ export function generateDeterministicSeedData(): AurelixStorageSchema {
       department: 'Executive Leadership',
       avatarUrl: '/images/avatar_claire_vance_1794569123724.jpg',
       status: 'Active',
-      joinedAt: '2025-01-10T09:00:00.000Z',
-      lastActiveAt: '2026-11-13T09:54:00.000Z',
+      joinedAt: ago(672, 1),
+      lastActiveAt: ago(0, 0, 6),
     },
     {
       id: 'team_02',
@@ -454,8 +461,8 @@ export function generateDeterministicSeedData(): AurelixStorageSchema {
       department: 'Finance & Operations',
       avatarUrl: '/images/avatar_marcus_sterling_1794569124389.jpg',
       status: 'Active',
-      joinedAt: '2025-02-01T09:00:00.000Z',
-      lastActiveAt: '2026-11-13T09:40:00.000Z',
+      joinedAt: ago(650, 1),
+      lastActiveAt: ago(0, 0, 20),
     },
     {
       id: 'team_03',
@@ -466,8 +473,8 @@ export function generateDeterministicSeedData(): AurelixStorageSchema {
       department: 'Data & Analytics',
       avatarUrl: '/images/avatar_elena_rostova_1794569124921.jpg',
       status: 'Active',
-      joinedAt: '2025-03-15T09:00:00.000Z',
-      lastActiveAt: '2026-11-13T08:15:00.000Z',
+      joinedAt: ago(608, 1),
+      lastActiveAt: ago(0, 1, 45),
     },
     {
       id: 'team_04',
@@ -478,8 +485,8 @@ export function generateDeterministicSeedData(): AurelixStorageSchema {
       department: 'Global Revenue',
       avatarUrl: '',
       status: 'Active',
-      joinedAt: '2025-04-20T09:00:00.000Z',
-      lastActiveAt: '2026-11-12T18:30:00.000Z',
+      joinedAt: ago(572, 1),
+      lastActiveAt: ago(0, 15, 30),
     },
     {
       id: 'team_05',
@@ -490,8 +497,8 @@ export function generateDeterministicSeedData(): AurelixStorageSchema {
       department: 'Finance & Operations',
       avatarUrl: '',
       status: 'Active',
-      joinedAt: '2025-06-11T09:00:00.000Z',
-      lastActiveAt: '2026-11-13T07:45:00.000Z',
+      joinedAt: ago(520, 1),
+      lastActiveAt: ago(0, 2, 15),
     },
     {
       id: 'team_06',
@@ -502,8 +509,8 @@ export function generateDeterministicSeedData(): AurelixStorageSchema {
       department: 'Advisory Board',
       avatarUrl: '',
       status: 'Active',
-      joinedAt: '2025-09-01T09:00:00.000Z',
-      lastActiveAt: '2026-11-10T15:20:00.000Z',
+      joinedAt: ago(438, 1),
+      lastActiveAt: ago(2, 18, 40),
     },
   ];
 
@@ -597,8 +604,8 @@ export function generateDeterministicSeedData(): AurelixStorageSchema {
       channelFilter: 'All',
       categoryFilter: 'All',
       paymentStatusFilter: 'Paid',
-      createdAt: '2026-09-01T10:00:00.000Z',
-      lastGeneratedAt: '2026-11-12T16:30:00.000Z',
+      createdAt: ago(73),
+      lastGeneratedAt: ago(0, 17, 30),
       createdBy: 'Marcus Sterling',
     },
     {
@@ -609,8 +616,8 @@ export function generateDeterministicSeedData(): AurelixStorageSchema {
       channelFilter: 'Direct Enterprise',
       categoryFilter: 'All',
       paymentStatusFilter: 'All',
-      createdAt: '2026-09-15T14:20:00.000Z',
-      lastGeneratedAt: '2026-11-11T11:15:00.000Z',
+      createdAt: ago(58, 19, 40),
+      lastGeneratedAt: ago(1, 22, 45),
       createdBy: 'Elena Rostova',
     },
     {
@@ -621,8 +628,8 @@ export function generateDeterministicSeedData(): AurelixStorageSchema {
       channelFilter: 'All',
       categoryFilter: 'Enterprise Software',
       paymentStatusFilter: 'Paid',
-      createdAt: '2026-10-04T09:00:00.000Z',
-      lastGeneratedAt: '2026-11-10T17:45:00.000Z',
+      createdAt: ago(40, 1),
+      lastGeneratedAt: ago(2, 16, 15),
       createdBy: 'Claire Vance',
     },
     {
@@ -633,8 +640,8 @@ export function generateDeterministicSeedData(): AurelixStorageSchema {
       channelFilter: 'All',
       categoryFilter: 'Cloud Infrastructure',
       paymentStatusFilter: 'Paid',
-      createdAt: '2026-10-19T12:00:00.000Z',
-      lastGeneratedAt: '2026-11-09T10:05:00.000Z',
+      createdAt: ago(24, 22),
+      lastGeneratedAt: ago(3, 23, 55),
       createdBy: 'Nadia Okafor',
     },
   ];
@@ -644,7 +651,7 @@ export function generateDeterministicSeedData(): AurelixStorageSchema {
       id: 'rep_hist_01',
       reportName: 'Executive Monthly Revenue Ledger',
       type: 'Revenue Ledger',
-      generatedAt: '2026-11-12T16:30:00.000Z',
+      generatedAt: ago(0, 17, 30),
       generatedBy: 'Marcus Sterling',
       rowCount: 118,
       totalRevenueReported: 384250,
@@ -654,7 +661,7 @@ export function generateDeterministicSeedData(): AurelixStorageSchema {
       id: 'rep_hist_02',
       reportName: 'Direct Enterprise Sales Performance',
       type: 'Sales Summary',
-      generatedAt: '2026-11-11T11:15:00.000Z',
+      generatedAt: ago(1, 22, 45),
       generatedBy: 'Elena Rostova',
       rowCount: 164,
       totalRevenueReported: 592800,
@@ -686,8 +693,8 @@ export function generateDeterministicSeedData(): AurelixStorageSchema {
 
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
-    seededAt: REFERENCE_NOW_ISO,
-    lastUpdatedAt: REFERENCE_NOW_ISO,
+    seededAt: ago(0),
+    lastUpdatedAt: ago(0),
     customers,
     products,
     orders,

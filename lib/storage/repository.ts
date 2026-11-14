@@ -1,6 +1,7 @@
 import { AurelixStorageSchema } from '@/types';
 import { backupStorageSchema } from '@/lib/validation/schemas';
 import { CURRENT_SCHEMA_VERSION, generateDeterministicSeedData } from '@/lib/demo-data/seed';
+import { DAY_MS, nowIso, nowMs } from '@/lib/clock';
 
 export const STORAGE_KEYS = {
   MAIN_STORE: 'aurelix_analytics_v1_store',
@@ -13,6 +14,57 @@ export interface StorageLoadResult {
   errorMessage?: string;
 }
 
+/**
+ * Moves a saved workspace forward when it was last seeded on an earlier day, so
+ * the demo window keeps ending today. Records dated at or before `seededAt` are
+ * seed-era and shift by the elapsed time; anything newer was created at runtime
+ * and keeps its real timestamp. A no-op (same object) within the same UTC day.
+ */
+export function rebaseToNow(
+  data: AurelixStorageSchema,
+  now: number = nowMs()
+): AurelixStorageSchema {
+  const seededMs = Date.parse(data.seededAt);
+  if (!Number.isFinite(seededMs)) return data;
+  const dayDelta = Math.floor(now / DAY_MS) - Math.floor(seededMs / DAY_MS);
+  if (dayDelta <= 0) return data;
+
+  const delta = now - seededMs;
+  const shift = (iso: string): string => {
+    const t = Date.parse(iso);
+    return Number.isFinite(t) && t <= seededMs ? new Date(t + delta).toISOString() : iso;
+  };
+  const shiftDay = (day: string): string => {
+    const t = Date.parse(day);
+    return Number.isFinite(t) ? new Date(t + dayDelta * DAY_MS).toISOString().slice(0, 10) : day;
+  };
+
+  return {
+    ...data,
+    seededAt: new Date(now).toISOString(),
+    customers: data.customers.map((c) => ({ ...c, createdAt: shift(c.createdAt) })),
+    products: data.products.map((p) => ({
+      ...p,
+      createdAt: shift(p.createdAt),
+      updatedAt: shift(p.updatedAt),
+    })),
+    orders: data.orders.map((o) => ({ ...o, orderDate: shift(o.orderDate) })),
+    team: data.team.map((m) => ({
+      ...m,
+      joinedAt: shift(m.joinedAt),
+      lastActiveAt: shift(m.lastActiveAt),
+    })),
+    activities: data.activities.map((a) => ({ ...a, timestamp: shift(a.timestamp) })),
+    savedReports: data.savedReports.map((r) => ({
+      ...r,
+      createdAt: shift(r.createdAt),
+      lastGeneratedAt: shift(r.lastGeneratedAt),
+    })),
+    reportHistory: data.reportHistory.map((r) => ({ ...r, generatedAt: shift(r.generatedAt) })),
+    dailySessions: data.dailySessions.map((s) => ({ ...s, date: shiftDay(s.date) })),
+  };
+}
+
 export function migrateStorageSchema(raw: Record<string, unknown>): AurelixStorageSchema | null {
   try {
     const version = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : 0;
@@ -22,11 +74,11 @@ export function migrateStorageSchema(raw: Record<string, unknown>): AurelixStora
         ...seed,
         ...raw,
         schemaVersion: CURRENT_SCHEMA_VERSION,
-        lastUpdatedAt: new Date().toISOString(),
+        lastUpdatedAt: nowIso(),
       };
       const parsed = backupStorageSchema.safeParse(merged);
       if (parsed.success) {
-        return merged;
+        return rebaseToNow(merged);
       }
     }
     return null;
@@ -74,8 +126,10 @@ export function loadFromLocalStorage(): StorageLoadResult {
           ? parsedJson.reportHistory
           : fallbackSeed.reportHistory,
       };
+      const current = rebaseToNow(hydratedData);
+      if (current !== hydratedData) saveToLocalStorage(current);
       return {
-        data: hydratedData,
+        data: current,
         status: 'hydrated',
       };
     }
@@ -129,7 +183,7 @@ export function saveToLocalStorage(data: AurelixStorageSchema): {
   try {
     const payload: AurelixStorageSchema = {
       ...data,
-      lastUpdatedAt: new Date().toISOString(),
+      lastUpdatedAt: nowIso(),
     };
     const serialized = JSON.stringify(payload);
     window.localStorage.setItem(STORAGE_KEYS.MAIN_STORE, serialized);
@@ -171,12 +225,12 @@ export function validateAndImportBackupJson(rawJsonString: string): {
 
     // Referential integrity check: verify orders reference valid customer IDs or preserve historical customer snapshots
     const fallbackSeed = generateDeterministicSeedData();
-    const validatedData: AurelixStorageSchema = {
+    const validatedData: AurelixStorageSchema = rebaseToNow({
       ...fallbackSeed,
       ...parsed,
       schemaVersion: CURRENT_SCHEMA_VERSION,
-      lastUpdatedAt: new Date().toISOString(),
-    };
+      lastUpdatedAt: nowIso(),
+    });
 
     const saved = saveToLocalStorage(validatedData);
     if (!saved.ok) {

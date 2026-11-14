@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { Download, Search, ArrowUpDown, Eye } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useNowMs } from '@/lib/useClock';
 import {
   buildRevenueTimeSeries,
   calculateExecutiveComparison,
@@ -45,9 +46,10 @@ export default function RevenueIntelligencePage() {
   const [pageSize, setPageSize] = useState(10);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
+  const now = useNowMs();
   const dateWindow = useMemo(
-    () => resolveDateWindow(datePreset, customStartDate, customEndDate),
-    [datePreset, customStartDate, customEndDate]
+    () => resolveDateWindow(datePreset, customStartDate, customEndDate, new Date(now).toISOString()),
+    [datePreset, customStartDate, customEndDate, now]
   );
 
   const comparison = useMemo(

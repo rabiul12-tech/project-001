@@ -21,8 +21,10 @@ export function DateRangePicker() {
   const setDatePreset = useAppStore((s) => s.setDatePreset);
 
   const [showCustomPopover, setShowCustomPopover] = useState(false);
-  const [startInput, setStartInput] = useState(customStartDate);
-  const [endInput, setEndInput] = useState(customEndDate);
+  const [startDraft, setStartInput] = useState<string | null>(null);
+  const [endDraft, setEndInput] = useState<string | null>(null);
+  const startInput = startDraft ?? customStartDate;
+  const endInput = endDraft ?? customEndDate;
 
   const handlePresetClick = (preset: DateRangePreset) => {
     if (preset === 'custom') {
@@ -75,7 +77,7 @@ export function DateRangePicker() {
           className="absolute right-0 top-full mt-2 z-40 w-72 p-4 rounded-xl bg-surface-raised border border-line shadow-xl space-y-3"
         >
           <div className="text-xs font-semibold text-ink">
-            Custom Date Window (2025–2026)
+            Custom Date Window
           </div>
           <div className="space-y-2">
             <label className="block text-xs text-ink-muted">

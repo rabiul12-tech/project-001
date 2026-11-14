@@ -13,6 +13,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useNowMs } from '@/lib/useClock';
 import {
   calculateExecutiveComparison,
   resolveDateWindow,
@@ -33,11 +34,12 @@ export default function LandingPage() {
   const updateSettings = useAppStore((s) => s.updateSettings);
 
   const [heroImgFailed, setHeroImgFailed] = useState(false);
+  const now = useNowMs();
 
   const annualMetrics = useMemo(() => {
-    const window = resolveDateWindow('12m');
+    const window = resolveDateWindow('12m', undefined, undefined, new Date(now).toISOString());
     return calculateExecutiveComparison(orders, dailySessions, window);
-  }, [orders, dailySessions]);
+  }, [orders, dailySessions, now]);
 
   const handleEnterAsRole = (memberName: string, memberEmail: string, memberTitle: string, role: TeamRole) => {
     setActiveRolePreview(role);

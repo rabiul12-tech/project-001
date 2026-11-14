@@ -7,7 +7,7 @@ import {
   ProductCategory,
   SalesChannel,
 } from '@/types';
-import { REFERENCE_NOW_ISO } from '@/lib/demo-data/seed';
+import { nowIso } from '@/lib/clock';
 
 /**
  * CENTRALIZED ANALYTICS & FINANCIAL CALCULATION ENGINE
@@ -35,9 +35,13 @@ export function resolveDateWindow(
   preset: DateRangePreset,
   customStart?: string,
   customEnd?: string,
-  referenceIso: string = REFERENCE_NOW_ISO
+  referenceIso: string = nowIso()
 ): DateWindow {
-  const endMs = customEnd ? new Date(customEnd).getTime() : new Date(referenceIso).getTime();
+  // Presets always end now; only an explicit custom range uses its own end date.
+  const endMs =
+    preset === 'custom' && customEnd
+      ? new Date(customEnd).getTime()
+      : new Date(referenceIso).getTime();
   const oneDayMs = 86400 * 1000;
 
   let days = 30;
