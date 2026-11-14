@@ -265,7 +265,7 @@ function CustomersDirectoryContent() {
             <button
               type="button"
               onClick={() => handleExportCustomers(false)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium bg-surface-raised border border-line text-ink-secondary hover:bg-surface-hover transition-colors whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-surface-raised border border-line text-ink-secondary hover:bg-surface-hover transition-colors whitespace-nowrap shrink-0"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export All CSV</span>
@@ -273,7 +273,7 @@ function CustomersDirectoryContent() {
             <button
               type="button"
               onClick={openCreateModal}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Customer</span>
@@ -308,7 +308,7 @@ function CustomersDirectoryContent() {
 
       {/* Filter & Bulk Action Toolbar */}
       <div className="p-4 rounded-xl bg-surface-raised border border-line flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -319,7 +319,7 @@ function CustomersDirectoryContent() {
                 setPage(1);
               }}
               placeholder="Search company, contact, email, country..."
-              className="pl-8 pr-3 py-1.5 w-64 rounded-lg bg-surface-sunken border border-line text-xs text-ink focus:outline-none"
+              className="pl-8 pr-3 py-2 w-64 rounded-lg bg-surface-sunken border border-line text-xs text-ink focus:outline-none"
             />
           </div>
 
@@ -330,7 +330,7 @@ function CustomersDirectoryContent() {
               setSegmentFilter(e.target.value as CustomerSegment | 'All');
               setPage(1);
             }}
-            className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
+            className="px-3 py-2 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
           >
             <option value="All">All Segments</option>
             <option value="Enterprise">Enterprise</option>
@@ -346,7 +346,7 @@ function CustomersDirectoryContent() {
               setStatusFilter(e.target.value as CustomerStatus | 'All');
               setPage(1);
             }}
-            className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
+            className="px-3 py-2 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
           >
             <option value="All">All Statuses</option>
             <option value="Active">Active</option>
@@ -364,14 +364,14 @@ function CustomersDirectoryContent() {
             <button
               type="button"
               onClick={() => handleExportCustomers(true)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-surface-hover text-ink-secondary hover:bg-slate-200"
+              className="px-3 py-2 rounded-lg text-xs font-medium bg-surface-hover text-ink-secondary hover:bg-slate-200"
             >
               Export Selected
             </button>
             <button
               type="button"
               onClick={() => setDeleteTargetIds(selectedIds)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-600/10 text-danger hover:bg-red-600/20"
+              className="px-3 py-2 rounded-lg text-xs font-medium bg-red-600/10 text-danger hover:bg-red-600/20"
             >
               Delete Selected
             </button>
@@ -394,7 +394,7 @@ function CustomersDirectoryContent() {
       ) : (
         <div className="rounded-xl bg-surface-raised border border-line overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-sm table-sticky-first">
               <thead>
                 <tr className="border-b border-line bg-surface-sunken/60 text-xs font-semibold text-ink-muted">
                   <th className="py-3 px-4 w-9">
@@ -473,14 +473,17 @@ function CustomersDirectoryContent() {
                         className="rounded border-line"
                       />
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-2.5">
+                    <td className="py-3 px-4 max-w-[240px]">
+                      <div className="flex items-center gap-3">
                         <UserAvatar name={cust.name} size="sm" />
                         <div className="min-w-0">
-                          <div className="font-semibold text-ink truncate">
+                          <div className="font-semibold text-ink truncate" title={cust.company}>
                             {cust.company}
                           </div>
-                          <div className="text-xs text-ink-muted truncate">
+                          <div
+                            className="text-xs text-ink-muted truncate"
+                            title={`${cust.name} · ${cust.email}`}
+                          >
                             {cust.name} · {cust.email}
                           </div>
                         </div>
@@ -488,7 +491,7 @@ function CustomersDirectoryContent() {
                     </td>
                     <td className="py-3 px-4 text-ink-secondary whitespace-nowrap">
                       <span className="font-medium">{cust.segment}</span>
-                      <span className="text-ink-muted mx-1.5">·</span>
+                      <span className="text-ink-muted mx-2">·</span>
                       <span className="text-ink-muted">{cust.country}</span>
                     </td>
                     <td className="py-3 px-4">
@@ -512,7 +515,7 @@ function CustomersDirectoryContent() {
                           type="button"
                           onClick={() => setDrawerCustomer(cust)}
                           aria-label={`View ${cust.company}`}
-                          className="p-1.5 rounded-lg text-ink-muted hover:text-blue-600 hover:bg-surface-hover"
+                          className="p-2 rounded-lg text-ink-muted hover:text-blue-600 hover:bg-surface-hover"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
@@ -520,7 +523,7 @@ function CustomersDirectoryContent() {
                           type="button"
                           onClick={() => openEditModal(cust)}
                           aria-label={`Edit ${cust.company}`}
-                          className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover"
+                          className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
@@ -528,7 +531,7 @@ function CustomersDirectoryContent() {
                           type="button"
                           onClick={() => setDeleteTargetIds([cust.id])}
                           aria-label={`Delete ${cust.company}`}
-                          className="p-1.5 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-500/10"
+                          className="p-2 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-500/10"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -683,7 +686,7 @@ function CustomersDirectoryContent() {
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2.5 pt-2">
+          <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={() => setModalOpen(false)}
@@ -739,14 +742,14 @@ function CustomersDirectoryContent() {
                   setDrawerCustomer(null);
                   openEditModal(target);
                 }}
-                className="px-3.5 py-2 rounded-lg text-xs font-medium bg-surface-raised border border-line text-ink-secondary"
+                className="px-4 py-2 rounded-lg text-xs font-medium bg-surface-raised border border-line text-ink-secondary"
               >
                 Edit Profile
               </button>
               <button
                 type="button"
                 onClick={() => setDrawerCustomer(null)}
-                className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent-strong text-white"
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong text-white"
               >
                 Done
               </button>
@@ -757,19 +760,19 @@ function CustomersDirectoryContent() {
         {drawerCustomer && (
           <div className="space-y-6 text-xs">
             <div className="grid grid-cols-3 gap-3">
-              <div className="p-3.5 rounded-xl bg-surface-sunken border border-line">
+              <div className="p-4 rounded-xl bg-surface-sunken border border-line">
                 <div className="text-ink-muted">Lifetime Spend</div>
                 <div className="text-heading tabular-nums text-ink mt-1">
                   {formatCurrency(drawerCustomer.lifetimeSpend, settings.currency, settings.numberFormat)}
                 </div>
               </div>
-              <div className="p-3.5 rounded-xl bg-surface-sunken border border-line">
+              <div className="p-4 rounded-xl bg-surface-sunken border border-line">
                 <div className="text-ink-muted">Total Orders</div>
                 <div className="text-heading tabular-nums text-ink mt-1">
                   {drawerCustomer.ordersCount}
                 </div>
               </div>
-              <div className="p-3.5 rounded-xl bg-surface-sunken border border-line">
+              <div className="p-4 rounded-xl bg-surface-sunken border border-line">
                 <div className="text-ink-muted">Average Order</div>
                 <div className="text-heading tabular-nums text-ink mt-1">
                   {formatCurrency(drawerCustomer.averageOrderValue, settings.currency, settings.numberFormat)}
@@ -801,7 +804,7 @@ function CustomersDirectoryContent() {
               )}
             </div>
 
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <h3 className="font-bold text-ink">
                 Customer Purchase History ({drawerCustomerOrders.length} Orders)
               </h3>
@@ -809,7 +812,7 @@ function CustomersDirectoryContent() {
                 <p className="text-ink-muted">No orders recorded for this account yet.</p>
               ) : (
                 <div className="rounded-xl border border-line overflow-hidden">
-                  <table className="w-full text-left border-collapse">
+                  <table className="w-full text-left border-collapse table-sticky-first">
                     <thead>
                       <tr className="border-b border-line bg-surface-sunken text-xs text-ink-muted">
                         <th className="py-2 px-3">Order #</th>
@@ -821,16 +824,16 @@ function CustomersDirectoryContent() {
                     <tbody className="divide-y divide-line-subtle">
                       {drawerCustomerOrders.map((ord) => (
                         <tr key={ord.id}>
-                          <td className="py-2.5 px-3 tabular-nums font-semibold text-accent">
+                          <td className="py-3 px-3 tabular-nums font-semibold text-accent">
                             {ord.orderNumber}
                           </td>
-                          <td className="py-2.5 px-3 tabular-nums text-ink-muted">
+                          <td className="py-3 px-3 tabular-nums text-ink-muted">
                             {formatDateDisplay(ord.orderDate, settings.dateFormat)}
                           </td>
-                          <td className="py-2.5 px-3">
+                          <td className="py-3 px-3">
                             <StatusBadge status={ord.paymentStatus} />
                           </td>
-                          <td className="py-2.5 px-3 text-right tabular-nums font-semibold">
+                          <td className="py-3 px-3 text-right tabular-nums font-semibold">
                             {formatCurrency(ord.totalAmount, settings.currency, settings.numberFormat)}
                           </td>
                         </tr>

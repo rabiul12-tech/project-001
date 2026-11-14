@@ -131,7 +131,7 @@ export default function TeamManagementPage() {
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>Add Demo Member</span>
@@ -140,7 +140,7 @@ export default function TeamManagementPage() {
       />
 
       {/* Simulated Role Preview Banner */}
-      <div className="p-5 rounded-xl bg-surface-raised border border-line flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="p-6 rounded-xl bg-surface-raised border border-line flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs font-semibold text-accent">
             <SlidersHorizontal className="w-4 h-4" />
@@ -151,13 +151,13 @@ export default function TeamManagementPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-sunken border border-line shrink-0">
+        <div className="flex items-center gap-2 p-1 rounded-xl bg-surface-sunken border border-line shrink-0">
           {(['Owner', 'Admin', 'Analyst', 'Viewer'] as const).map((r) => (
             <button
               key={r}
               type="button"
               onClick={() => setActiveRolePreview(r)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
                 settings.activeRolePreview === r
                   ? 'bg-accent-strong text-white shadow-xs'
                   : 'text-ink-muted hover:text-ink'
@@ -174,7 +174,7 @@ export default function TeamManagementPage() {
         {ROLE_DESCRIPTIONS.map((item) => (
           <div
             key={item.role}
-            className="p-5 rounded-xl bg-surface-raised border border-line flex flex-col justify-between gap-3"
+            className="p-6 rounded-xl bg-surface-raised border border-line flex flex-col justify-between gap-3"
           >
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -196,7 +196,7 @@ export default function TeamManagementPage() {
 
       {/* Team Member Roster */}
       <div className="rounded-xl bg-surface-raised border border-line overflow-hidden">
-        <div className="p-5 border-b border-line">
+        <div className="p-6 border-b border-line">
           <h2 className="text-heading text-ink">
             Workspace Team Roster
           </h2>
@@ -206,7 +206,7 @@ export default function TeamManagementPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-sm table-sticky-first">
             <thead>
               <tr className="border-b border-line bg-surface-sunken/60 text-xs font-semibold text-ink-muted">
                 <th className="py-3 px-4">Member</th>
@@ -220,7 +220,7 @@ export default function TeamManagementPage() {
             <tbody className="divide-y divide-line-subtle">
               {team.map((member) => (
                 <tr key={member.id} className="hover:bg-surface-hover/50">
-                  <td className="py-3.5 px-4">
+                  <td className="py-4 px-4">
                     <div className="flex items-center gap-3">
                       <UserAvatar name={member.name} src={member.avatarUrl} size="md" />
                       <div>
@@ -231,20 +231,20 @@ export default function TeamManagementPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="py-3.5 px-4">
+                  <td className="py-4 px-4">
                     <div className="font-medium text-ink-secondary">
                       {member.title}
                     </div>
                     <div className="text-xs text-ink-muted">{member.department}</div>
                   </td>
-                  <td className="py-3.5 px-4">
+                  <td className="py-4 px-4">
                     <select
                       aria-label={`Assign role for ${member.name}`}
                       value={member.role}
                       onChange={(e) =>
                         updateTeamMember(member.id, { role: e.target.value as TeamRole })
                       }
-                      className="px-2.5 py-1 rounded-lg bg-surface-sunken border border-line tabular-nums text-xs font-semibold text-accent"
+                      className="px-3 py-1 rounded-lg bg-surface-sunken border border-line tabular-nums text-xs font-semibold text-accent"
                     >
                       <option value="Owner">Owner</option>
                       <option value="Admin">Admin</option>
@@ -252,19 +252,19 @@ export default function TeamManagementPage() {
                       <option value="Viewer">Viewer</option>
                     </select>
                   </td>
-                  <td className="py-3.5 px-4">
+                  <td className="py-4 px-4">
                     <StatusBadge status={member.status} />
                   </td>
-                  <td className="py-3.5 px-4 tabular-nums text-ink-muted">
+                  <td className="py-4 px-4 tabular-nums text-ink-muted">
                     {formatDateDisplay(member.joinedAt, settings.dateFormat)}
                   </td>
-                  <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                  <td className="py-4 px-4 text-right whitespace-nowrap">
                     <div className="inline-flex items-center gap-1">
                       <button
                         type="button"
                         onClick={() => openEditModal(member)}
                         aria-label={`Edit ${member.name}`}
-                        className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover"
+                        className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
@@ -273,7 +273,7 @@ export default function TeamManagementPage() {
                           type="button"
                           onClick={() => setRemoveTarget(member)}
                           aria-label={`Remove ${member.name}`}
-                          className="p-1.5 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-500/10"
+                          className="p-2 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-500/10"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -300,14 +300,14 @@ export default function TeamManagementPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-sm table-sticky-first">
               <thead>
                 <tr className="border-b border-line text-xs font-semibold text-ink-muted">
-                  <th className="py-2.5 pr-4">Workspace Capability</th>
-                  <th className="py-2.5 px-3 text-center">Owner</th>
-                  <th className="py-2.5 px-3 text-center">Admin</th>
-                  <th className="py-2.5 px-3 text-center">Analyst</th>
-                  <th className="py-2.5 pl-3 text-center">Viewer</th>
+                  <th className="py-3 pr-4">Workspace Capability</th>
+                  <th className="py-3 px-3 text-center">Owner</th>
+                  <th className="py-3 px-3 text-center">Admin</th>
+                  <th className="py-3 px-3 text-center">Analyst</th>
+                  <th className="py-3 pl-3 text-center">Viewer</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-subtle">
@@ -407,7 +407,7 @@ export default function TeamManagementPage() {
               </label>
               <select
                 {...register('role')}
-                className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
               >
                 <option value="Owner">Owner</option>
                 <option value="Admin">Admin</option>
@@ -423,7 +423,7 @@ export default function TeamManagementPage() {
               <input
                 type="text"
                 {...register('title')}
-                className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
               />
               {errors.title && (
                 <p className="text-danger text-xs mt-1">{errors.title.message}</p>
@@ -437,7 +437,7 @@ export default function TeamManagementPage() {
               <input
                 type="text"
                 {...register('department')}
-                className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
               />
               {errors.department && (
                 <p className="text-danger text-xs mt-1">{errors.department.message}</p>

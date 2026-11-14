@@ -538,17 +538,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <UserCheck className="w-3.5 h-3.5" />
                     <span>Team & Role Preview</span>
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      resetDemoData();
-                      setProfileMenuOpen(false);
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-warning hover:bg-amber-500/10 text-left"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Reset Demo Dataset</span>
-                  </button>
+                  {process.env.NODE_ENV === 'development' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetDemoData();
+                        setProfileMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-warning hover:bg-amber-500/10 text-left"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Reset Demo Dataset</span>
+                    </button>
+                  )}
                   <Link
                     href="/"
                     onClick={() => setProfileMenuOpen(false)}

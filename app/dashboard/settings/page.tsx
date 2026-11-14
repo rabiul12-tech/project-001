@@ -225,8 +225,8 @@ export default function SettingsPage() {
             </p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-2.5 text-ink-secondary">
-            <Info className="w-4 h-4 text-accent mt-0.5 shrink-0" />
+          <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-3 text-ink-secondary">
+            <Info className="w-4 h-4 text-accent mt-1 shrink-0" />
             <span>
               <strong>Display Currency Notice:</strong> Changing the display currency updates currency symbols and formatting across the workspace for the demo dataset. It does not silently convert underlying ledger amounts using invented foreign exchange rates.
             </span>
@@ -320,7 +320,7 @@ export default function SettingsPage() {
                 onClick={() => setTheme('light')}
                 className={`p-4 rounded-xl border flex items-center gap-3 transition-colors ${
                   settings.theme === 'light'
-                    ? 'border-blue-600 bg-blue-600/5 text-accent font-semibold'
+                    ? 'border-accent bg-surface-raised ring-1 ring-accent text-accent font-semibold'
                     : 'border-line text-ink-secondary'
                 }`}
               >
@@ -417,7 +417,7 @@ export default function SettingsPage() {
         <div className="flex justify-end">
           <button
             type="submit"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent-strong hover:bg-accent-strong-hover text-white font-semibold shadow-xs transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent-strong hover:bg-accent-strong-hover text-white font-semibold shadow-xs transition-colors"
           >
             <Save className="w-4 h-4" />
             <span>Save All Workspace Preferences</span>

@@ -228,7 +228,7 @@ function ProductsCatalogContent() {
             <button
               type="button"
               onClick={handleExportCatalog}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium bg-surface-raised border border-line text-ink-secondary hover:bg-surface-hover transition-colors whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-surface-raised border border-line text-ink-secondary hover:bg-surface-hover transition-colors whitespace-nowrap shrink-0"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export Catalog CSV</span>
@@ -236,7 +236,7 @@ function ProductsCatalogContent() {
             <button
               type="button"
               onClick={openCreateModal}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Create Product</span>
@@ -271,7 +271,7 @@ function ProductsCatalogContent() {
 
       {/* Filter & View Mode Toolbar */}
       <div className="p-4 rounded-xl bg-surface-raised border border-line flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -282,7 +282,7 @@ function ProductsCatalogContent() {
                 setPage(1);
               }}
               placeholder="Search SKU, product name, category..."
-              className="pl-8 pr-3 py-1.5 w-64 rounded-lg bg-surface-sunken border border-line text-xs text-ink focus:outline-none"
+              className="pl-8 pr-3 py-2 w-64 rounded-lg bg-surface-sunken border border-line text-xs text-ink focus:outline-none"
             />
           </div>
 
@@ -293,7 +293,7 @@ function ProductsCatalogContent() {
               setCategoryFilter(e.target.value as ProductCategory | 'All');
               setPage(1);
             }}
-            className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
+            className="px-3 py-2 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
           >
             <option value="All">All Categories</option>
             <option value="Enterprise Software">Enterprise Software</option>
@@ -311,7 +311,7 @@ function ProductsCatalogContent() {
               setStatusFilter(e.target.value as ProductStatus | 'All');
               setPage(1);
             }}
-            className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
+            className="px-3 py-2 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
           >
             <option value="All">All Statuses</option>
             <option value="Active">Active</option>
@@ -325,7 +325,7 @@ function ProductsCatalogContent() {
           <button
             type="button"
             onClick={() => setViewMode('table')}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-2 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
               viewMode === 'table'
                 ? 'bg-surface-hover text-ink shadow-xs'
                 : 'text-ink-muted hover:text-ink'
@@ -337,7 +337,7 @@ function ProductsCatalogContent() {
           <button
             type="button"
             onClick={() => setViewMode('grid')}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+            className={`inline-flex items-center gap-2 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
               viewMode === 'grid'
                 ? 'bg-surface-hover text-ink shadow-xs'
                 : 'text-ink-muted hover:text-ink'
@@ -364,7 +364,7 @@ function ProductsCatalogContent() {
       ) : viewMode === 'table' ? (
         <div className="rounded-xl bg-surface-raised border border-line overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-sm table-sticky-first">
               <thead>
                 <tr className="border-b border-line bg-surface-sunken/60 text-xs font-semibold text-ink-muted">
                   <th className="py-3 px-4">
@@ -419,11 +419,11 @@ function ProductsCatalogContent() {
                     onClick={() => setDrawerProduct(prod)}
                     className="hover:bg-surface-hover/60 cursor-pointer transition-colors"
                   >
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 max-w-[280px]">
                       <div className="flex items-center gap-3">
                         <ProductArtwork category={prod.category} sku={prod.sku} size="sm" />
-                        <div>
-                          <div className="font-semibold text-ink">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-ink truncate" title={prod.name}>
                             {prod.name}
                           </div>
                           <div className="tabular-nums text-xs text-ink-muted">{prod.sku}</div>
@@ -465,7 +465,7 @@ function ProductsCatalogContent() {
                           type="button"
                           onClick={() => setDrawerProduct(prod)}
                           aria-label={`View ${prod.name}`}
-                          className="p-1.5 rounded-lg text-ink-muted hover:text-blue-600 hover:bg-surface-hover"
+                          className="p-2 rounded-lg text-ink-muted hover:text-blue-600 hover:bg-surface-hover"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
@@ -473,7 +473,7 @@ function ProductsCatalogContent() {
                           type="button"
                           onClick={() => openEditModal(prod)}
                           aria-label={`Edit ${prod.name}`}
-                          className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover"
+                          className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
@@ -482,7 +482,7 @@ function ProductsCatalogContent() {
                             type="button"
                             onClick={() => archiveProducts([prod.id])}
                             aria-label={`Archive ${prod.name}`}
-                            className="p-1.5 rounded-lg text-ink-muted hover:text-amber-600 hover:bg-amber-500/10"
+                            className="p-2 rounded-lg text-ink-muted hover:text-amber-600 hover:bg-amber-500/10"
                           >
                             <Archive className="w-3.5 h-3.5" />
                           </button>
@@ -514,7 +514,7 @@ function ProductsCatalogContent() {
               <div
                 key={prod.id}
                 onClick={() => setDrawerProduct(prod)}
-                className="p-5 rounded-xl bg-surface-raised border border-line hover:border-blue-500/40 cursor-pointer transition-colors flex flex-col justify-between gap-4"
+                className="p-6 rounded-xl bg-surface-raised border border-line hover:border-blue-500/40 cursor-pointer transition-colors flex flex-col justify-between gap-4"
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
@@ -525,7 +525,7 @@ function ProductsCatalogContent() {
                     <div className="text-xs tabular-nums text-ink-muted">
                       {prod.sku} · {prod.category}
                     </div>
-                    <h3 className="text-sm font-bold text-ink mt-0.5">
+                    <h3 className="text-sm font-bold text-ink mt-1">
                       {prod.name}
                     </h3>
                     <p className="text-xs text-ink-muted mt-1 line-clamp-2">
@@ -629,7 +629,7 @@ function ProductsCatalogContent() {
                 type="number"
                 step="1"
                 {...register('unitPrice', { valueAsNumber: true })}
-                className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
               />
               {errors.unitPrice && (
                 <p className="text-danger text-xs mt-1">{errors.unitPrice.message}</p>
@@ -644,7 +644,7 @@ function ProductsCatalogContent() {
                 type="number"
                 step="1"
                 {...register('costPrice', { valueAsNumber: true })}
-                className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
               />
             </div>
 
@@ -655,7 +655,7 @@ function ProductsCatalogContent() {
               <input
                 type="number"
                 {...register('stockLevel', { valueAsNumber: true })}
-                className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
               />
               {errors.stockLevel && (
                 <p className="text-danger text-xs mt-1">{errors.stockLevel.message}</p>
@@ -668,7 +668,7 @@ function ProductsCatalogContent() {
               </label>
               <select
                 {...register('status')}
-                className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
               >
                 <option value="Active">Active</option>
                 <option value="Low Stock">Low Stock</option>
@@ -691,7 +691,7 @@ function ProductsCatalogContent() {
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-2.5 pt-2">
+          <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={() => setModalOpen(false)}
@@ -725,14 +725,14 @@ function ProductsCatalogContent() {
                   setDrawerProduct(null);
                   openEditModal(p);
                 }}
-                className="px-3.5 py-2 rounded-lg text-xs font-medium border border-line"
+                className="px-4 py-2 rounded-lg text-xs font-medium border border-line"
               >
                 Edit Product
               </button>
               <button
                 type="button"
                 onClick={() => setDrawerProduct(null)}
-                className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent-strong text-white"
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong text-white"
               >
                 Close
               </button>
@@ -754,13 +754,13 @@ function ProductsCatalogContent() {
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <div className="p-3.5 rounded-xl bg-surface-sunken border border-line">
+              <div className="p-4 rounded-xl bg-surface-sunken border border-line">
                 <div className="text-ink-muted">Current Unit Price</div>
                 <div className="text-heading tabular-nums mt-1">
                   {formatCurrency(drawerProduct.unitPrice, settings.currency, settings.numberFormat)}
                 </div>
               </div>
-              <div className="p-3.5 rounded-xl bg-surface-sunken border border-line">
+              <div className="p-4 rounded-xl bg-surface-sunken border border-line">
                 <div className="text-ink-muted">Gross Margin</div>
                 <div className="text-heading tabular-nums text-success mt-1">
                   {drawerProduct.unitPrice > 0
@@ -768,7 +768,7 @@ function ProductsCatalogContent() {
                     : '0%'}
                 </div>
               </div>
-              <div className="p-3.5 rounded-xl bg-surface-sunken border border-line">
+              <div className="p-4 rounded-xl bg-surface-sunken border border-line">
                 <div className="text-ink-muted">Available Stock</div>
                 <div className="text-heading tabular-nums mt-1">
                   {drawerProduct.stockLevel} units

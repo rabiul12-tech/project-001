@@ -197,7 +197,7 @@ export default function RevenueIntelligencePage() {
           <button
             type="button"
             onClick={handleExportRevenueCsv}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export Revenue Ledger CSV</span>
@@ -272,9 +272,9 @@ export default function RevenueIntelligencePage() {
                     setPaymentFilter(paymentFilter === st ? 'All' : st);
                     setPage(1);
                   }}
-                  className={`p-3.5 rounded-xl border cursor-pointer transition-colors ${
+                  className={`p-4 rounded-xl border cursor-pointer transition-colors ${
                     paymentFilter === st
-                      ? 'border-blue-600 bg-blue-600/5 dark:bg-blue-400/10'
+                      ? 'border-accent bg-surface-raised ring-1 ring-accent'
                       : 'border-line bg-surface-sunken/70'
                   }`}
                 >
@@ -309,7 +309,7 @@ export default function RevenueIntelligencePage() {
             </p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-sm table-sticky-first">
               <thead>
                 <tr className="border-b border-line text-xs font-semibold text-ink-muted">
                   <th className="pb-2">Product / SKU</th>
@@ -320,7 +320,7 @@ export default function RevenueIntelligencePage() {
               <tbody className="divide-y divide-line-subtle">
                 {topProductsByRevenue.map((p) => (
                   <tr key={p.productId}>
-                    <td className="py-2.5 pr-2">
+                    <td className="py-3 pr-2">
                       <div className="font-semibold text-ink">
                         {p.name}
                       </div>
@@ -328,10 +328,10 @@ export default function RevenueIntelligencePage() {
                         {p.sku} · {p.category}
                       </div>
                     </td>
-                    <td className="py-2.5 px-2 text-right tabular-nums text-ink-secondary">
+                    <td className="py-3 px-2 text-right tabular-nums text-ink-secondary">
                       {p.unitsSold}
                     </td>
-                    <td className="py-2.5 pl-2 text-right tabular-nums font-semibold text-ink">
+                    <td className="py-3 pl-2 text-right tabular-nums font-semibold text-ink">
                       {formatCurrency(p.grossRevenue, settings.currency, settings.numberFormat)}
                     </td>
                   </tr>
@@ -351,7 +351,7 @@ export default function RevenueIntelligencePage() {
             </p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-sm table-sticky-first">
               <thead>
                 <tr className="border-b border-line text-xs font-semibold text-ink-muted">
                   <th className="pb-2">Account</th>
@@ -362,7 +362,7 @@ export default function RevenueIntelligencePage() {
               <tbody className="divide-y divide-line-subtle">
                 {topCustomersByRevenue.map((c) => (
                   <tr key={c.id}>
-                    <td className="py-2.5 pr-2">
+                    <td className="py-3 pr-2">
                       <div className="font-semibold text-ink">
                         {c.company}
                       </div>
@@ -370,10 +370,10 @@ export default function RevenueIntelligencePage() {
                         {c.name} · {c.segment}
                       </div>
                     </td>
-                    <td className="py-2.5 px-2 text-right tabular-nums text-ink-secondary">
+                    <td className="py-3 px-2 text-right tabular-nums text-ink-secondary">
                       {c.ordersCount}
                     </td>
-                    <td className="py-2.5 pl-2 text-right tabular-nums font-semibold text-success">
+                    <td className="py-3 pl-2 text-right tabular-nums font-semibold text-success">
                       {formatCurrency(c.lifetimeSpend, settings.currency, settings.numberFormat)}
                     </td>
                   </tr>
@@ -386,7 +386,7 @@ export default function RevenueIntelligencePage() {
 
       {/* Detailed Transactions Ledger Table */}
       <div className="rounded-xl bg-surface-raised border border-line overflow-hidden">
-        <div className="p-5 border-b border-line flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="p-6 border-b border-line flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-heading text-ink">
               Detailed Financial Transactions Ledger
@@ -396,7 +396,7 @@ export default function RevenueIntelligencePage() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -407,7 +407,7 @@ export default function RevenueIntelligencePage() {
                   setPage(1);
                 }}
                 placeholder="Search order # or account..."
-                className="pl-8 pr-3 py-1.5 rounded-lg bg-surface-sunken border border-line text-xs text-ink focus:outline-none"
+                className="pl-8 pr-3 py-2 rounded-lg bg-surface-sunken border border-line text-xs text-ink focus:outline-none"
               />
             </div>
 
@@ -418,7 +418,7 @@ export default function RevenueIntelligencePage() {
                 setPaymentFilter(e.target.value as PaymentStatus | 'All');
                 setPage(1);
               }}
-              className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
+              className="px-3 py-2 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
             >
               <option value="All">All Payment Statuses</option>
               <option value="Paid">Paid</option>
@@ -430,7 +430,7 @@ export default function RevenueIntelligencePage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-sm table-sticky-first">
             <thead>
               <tr className="border-b border-line bg-surface-sunken/60 text-xs font-semibold text-ink-muted">
                 <th className="py-3 px-4">Order #</th>
@@ -486,8 +486,8 @@ export default function RevenueIntelligencePage() {
                     <td className="py-3 px-4 tabular-nums font-semibold text-accent whitespace-nowrap">
                       {ord.orderNumber}
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="font-medium text-ink">
+                    <td className="py-3 px-4 max-w-[160px]">
+                      <div className="font-medium text-ink truncate" title={ord.customerCompany}>
                         {ord.customerCompany}
                       </div>
                       <div className="text-xs text-ink-muted">{ord.salesChannel}</div>
@@ -518,7 +518,7 @@ export default function RevenueIntelligencePage() {
                           e.stopPropagation();
                           setSelectedOrder(ord);
                         }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-surface-sunken hover:bg-blue-600 hover:text-white text-ink-secondary transition-colors"
+                        className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-surface-sunken hover:bg-blue-600 hover:text-white text-ink-secondary transition-colors"
                       >
                         <Eye className="w-3 h-3" />
                         <span>Inspect</span>
@@ -560,7 +560,7 @@ export default function RevenueIntelligencePage() {
             <div className="grid grid-cols-2 gap-3 p-4 rounded-xl bg-surface-sunken border border-line">
               <div>
                 <div className="text-ink-muted">Customer Account</div>
-                <div className="font-bold text-ink mt-0.5">
+                <div className="font-bold text-ink mt-1">
                   {selectedOrder.customerCompany}
                 </div>
                 <div className="text-ink-muted">{selectedOrder.customerEmail}</div>
@@ -580,7 +580,7 @@ export default function RevenueIntelligencePage() {
                 Locked Line-Item Schedule
               </h3>
               <div className="rounded-xl border border-line overflow-hidden">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse table-sticky-first">
                   <thead>
                     <tr className="border-b border-line bg-surface-sunken text-xs text-ink-muted">
                       <th className="py-2 px-3">SKU / Product</th>
@@ -592,19 +592,19 @@ export default function RevenueIntelligencePage() {
                   <tbody className="divide-y divide-line-subtle">
                     {selectedOrder.lineItems.map((li) => (
                       <tr key={li.id}>
-                        <td className="py-2.5 px-3">
+                        <td className="py-3 px-3">
                           <div className="font-semibold text-ink">
                             {li.productName}
                           </div>
                           <div className="tabular-nums text-xs text-ink-muted">{li.sku}</div>
                         </td>
-                        <td className="py-2.5 px-3 text-right tabular-nums">
+                        <td className="py-3 px-3 text-right tabular-nums">
                           {li.quantity}
                         </td>
-                        <td className="py-2.5 px-3 text-right tabular-nums">
+                        <td className="py-3 px-3 text-right tabular-nums">
                           {formatCurrency(li.unitPrice, settings.currency, settings.numberFormat)}
                         </td>
-                        <td className="py-2.5 px-3 text-right tabular-nums font-semibold">
+                        <td className="py-3 px-3 text-right tabular-nums font-semibold">
                           {formatCurrency(li.subtotal, settings.currency, settings.numberFormat)}
                         </td>
                       </tr>
@@ -614,7 +614,7 @@ export default function RevenueIntelligencePage() {
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-2.5">
+            <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-3">
               <h3 className="font-bold text-ink">
                 Accounting Reconciliation Formula
               </h3>

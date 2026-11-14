@@ -238,7 +238,7 @@ function OrdersManagementContent() {
             <button
               type="button"
               onClick={() => handleExportOrdersCsv(false)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-medium bg-surface-raised border border-line text-ink-secondary hover:bg-surface-hover transition-colors whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-surface-raised border border-line text-ink-secondary hover:bg-surface-hover transition-colors whitespace-nowrap shrink-0"
             >
               <Download className="w-3.5 h-3.5" />
               <span>Export Orders CSV</span>
@@ -246,7 +246,7 @@ function OrdersManagementContent() {
             <button
               type="button"
               onClick={() => setCreateModalOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Create Order</span>
@@ -281,7 +281,7 @@ function OrdersManagementContent() {
 
       {/* Filters & Bulk Actions */}
       <div className="p-4 rounded-xl bg-surface-raised border border-line flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -292,7 +292,7 @@ function OrdersManagementContent() {
                 setPage(1);
               }}
               placeholder="Search order #, company, contact..."
-              className="pl-8 pr-3 py-1.5 w-60 rounded-lg bg-surface-sunken border border-line text-xs text-ink focus:outline-none"
+              className="pl-8 pr-3 py-2 w-60 rounded-lg bg-surface-sunken border border-line text-xs text-ink focus:outline-none"
             />
           </div>
 
@@ -303,7 +303,7 @@ function OrdersManagementContent() {
               setPaymentFilter(e.target.value as PaymentStatus | 'All');
               setPage(1);
             }}
-            className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
+            className="px-3 py-2 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
           >
             <option value="All">All Payment Statuses</option>
             <option value="Paid">Paid</option>
@@ -319,7 +319,7 @@ function OrdersManagementContent() {
               setFulfillmentFilter(e.target.value as FulfillmentStatus | 'All');
               setPage(1);
             }}
-            className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
+            className="px-3 py-2 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
           >
             <option value="All">All Fulfillment</option>
             <option value="Fulfilled">Fulfilled</option>
@@ -335,7 +335,7 @@ function OrdersManagementContent() {
               setChannelFilter(e.target.value as SalesChannel | 'All');
               setPage(1);
             }}
-            className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
+            className="px-3 py-2 rounded-lg bg-surface-sunken border border-line text-xs text-ink-secondary"
           >
             <option value="All">All Channels</option>
             <option value="Direct Enterprise">Direct Enterprise</option>
@@ -356,14 +356,14 @@ function OrdersManagementContent() {
                 bulkUpdateOrderStatus(selectedIds, 'Paid', 'Fulfilled');
                 setSelectedIds([]);
               }}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-emerald-600/10 text-success hover:bg-emerald-600/20"
+              className="px-3 py-2 rounded-lg text-xs font-medium bg-emerald-600/10 text-success hover:bg-emerald-600/20"
             >
               Mark Paid & Fulfilled
             </button>
             <button
               type="button"
               onClick={() => handleExportOrdersCsv(true)}
-              className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-surface-hover text-ink-secondary"
+              className="px-3 py-2 rounded-lg text-xs font-medium bg-surface-hover text-ink-secondary"
             >
               Export Selected CSV
             </button>
@@ -387,7 +387,7 @@ function OrdersManagementContent() {
       ) : (
         <div className="rounded-xl bg-surface-raised border border-line overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full text-left border-collapse text-sm table-sticky-first">
               <thead>
                 <tr className="border-b border-line bg-surface-sunken/60 text-xs font-semibold text-ink-muted">
                   <th className="py-3 px-4 w-9">
@@ -472,11 +472,13 @@ function OrdersManagementContent() {
                     <td className="py-3 px-4 tabular-nums font-semibold text-accent whitespace-nowrap">
                       {ord.orderNumber}
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-ink">
+                    <td className="py-3 px-4 max-w-[160px]">
+                      <div className="font-semibold text-ink truncate" title={ord.customerCompany}>
                         {ord.customerCompany}
                       </div>
-                      <div className="text-xs text-ink-muted">{ord.customerName}</div>
+                      <div className="text-xs text-ink-muted truncate" title={ord.customerName}>
+                        {ord.customerName}
+                      </div>
                     </td>
                     <td className="py-3 px-4 tabular-nums text-ink-muted whitespace-nowrap">
                       {formatDateDisplay(ord.orderDate, settings.dateFormat)}
@@ -507,7 +509,7 @@ function OrdersManagementContent() {
                           type="button"
                           onClick={() => setDrawerOrder(ord)}
                           title="Inspect order details"
-                          className="p-1.5 rounded-lg text-ink-muted hover:text-blue-600 hover:bg-surface-hover"
+                          className="p-2 rounded-lg text-ink-muted hover:text-blue-600 hover:bg-surface-hover"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
@@ -519,7 +521,7 @@ function OrdersManagementContent() {
                               setRefundCustomAmount(String(ord.totalAmount));
                             }}
                             title="Issue simulated refund"
-                            className="p-1.5 rounded-lg text-ink-muted hover:text-amber-600 hover:bg-amber-500/10"
+                            className="p-2 rounded-lg text-ink-muted hover:text-amber-600 hover:bg-amber-500/10"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
@@ -529,7 +531,7 @@ function OrdersManagementContent() {
                             type="button"
                             onClick={() => setCancelTargetOrder(ord)}
                             title="Cancel order"
-                            className="p-1.5 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-500/10"
+                            className="p-2 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-500/10"
                           >
                             <XCircle className="w-3.5 h-3.5" />
                           </button>
@@ -632,7 +634,7 @@ function OrdersManagementContent() {
                 return (
                   <div
                     key={idx}
-                    className="grid grid-cols-12 gap-2 items-center p-2.5 rounded-lg bg-surface-sunken border border-line"
+                    className="grid grid-cols-12 gap-2 items-center p-3 rounded-lg bg-surface-sunken border border-line"
                   >
                     <div className="col-span-7">
                       <select
@@ -642,7 +644,7 @@ function OrdersManagementContent() {
                           updated[idx].productId = e.target.value;
                           setNewItems(updated);
                         }}
-                        className="w-full px-2 py-1.5 rounded bg-surface-raised border border-line"
+                        className="w-full px-2 py-2 rounded bg-surface-raised border border-line"
                       >
                         {products.map((p) => (
                           <option key={p.id} value={p.id}>
@@ -662,7 +664,7 @@ function OrdersManagementContent() {
                           updated[idx].quantity = Math.max(1, Number(e.target.value) || 1);
                           setNewItems(updated);
                         }}
-                        className="w-full px-2 py-1.5 rounded bg-surface-raised border border-line tabular-nums text-right"
+                        className="w-full px-2 py-2 rounded bg-surface-raised border border-line tabular-nums text-right"
                       />
                     </div>
                     <div className="col-span-2 text-right tabular-nums font-semibold">
@@ -697,7 +699,7 @@ function OrdersManagementContent() {
               <select
                 value={newPaymentStatus}
                 onChange={(e) => setNewPaymentStatus(e.target.value as PaymentStatus)}
-                className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
               >
                 <option value="Paid">Paid</option>
                 <option value="Pending">Pending</option>
@@ -711,7 +713,7 @@ function OrdersManagementContent() {
               <select
                 value={newFulfillmentStatus}
                 onChange={(e) => setNewFulfillmentStatus(e.target.value as FulfillmentStatus)}
-                className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
               >
                 <option value="Fulfilled">Fulfilled</option>
                 <option value="Processing">Processing</option>
@@ -728,7 +730,7 @@ function OrdersManagementContent() {
                 min={0}
                 value={newDiscount}
                 onChange={(e) => setNewDiscount(Math.max(0, Number(e.target.value) || 0))}
-                className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
               />
             </div>
 
@@ -743,13 +745,13 @@ function OrdersManagementContent() {
                 max={30}
                 value={newTaxRatePercent}
                 onChange={(e) => setNewTaxRatePercent(Math.max(0, Number(e.target.value) || 0))}
-                className="w-full px-2.5 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
               />
             </div>
           </div>
 
           {/* Live Calculated Summary Box */}
-          <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-1.5">
+          <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-2">
             <div className="flex justify-between text-ink-muted">
               <span>Line-Item Subtotal:</span>
               <span className="tabular-nums">
@@ -776,7 +778,7 @@ function OrdersManagementContent() {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2.5 pt-2">
+          <div className="flex items-center justify-end gap-3 pt-2">
             <button
               type="button"
               onClick={() => setCreateModalOpen(false)}
@@ -816,7 +818,7 @@ function OrdersManagementContent() {
             }}
             className="space-y-4 text-xs"
           >
-            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warning leading-relaxed">
+            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warning leading-relaxed">
               Issuing a simulated refund deducts the refunded amount from Net Realized Revenue and updates the Refund Rate across all executive dashboards.
             </div>
             <div>
@@ -896,7 +898,7 @@ function OrdersManagementContent() {
                         activeDrawerOrder.fulfillmentStatus
                       )
                     }
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-surface-raised border border-line"
+                    className="w-full px-3 py-2 rounded-lg bg-surface-raised border border-line"
                   >
                     <option value="Paid">Paid</option>
                     <option value="Pending">Pending</option>
@@ -915,7 +917,7 @@ function OrdersManagementContent() {
                         e.target.value as FulfillmentStatus
                       )
                     }
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-surface-raised border border-line"
+                    className="w-full px-3 py-2 rounded-lg bg-surface-raised border border-line"
                   >
                     <option value="Fulfilled">Fulfilled</option>
                     <option value="Processing">Processing</option>
@@ -933,7 +935,7 @@ function OrdersManagementContent() {
                       setRefundTargetOrder(activeDrawerOrder);
                       setRefundCustomAmount(String(activeDrawerOrder.totalAmount));
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-warning font-medium hover:bg-amber-500/20"
+                    className="px-3 py-2 rounded-lg bg-amber-500/10 text-warning font-medium hover:bg-amber-500/20"
                   >
                     Issue Simulated Refund
                   </button>
@@ -942,7 +944,7 @@ function OrdersManagementContent() {
                   <button
                     type="button"
                     onClick={() => setCancelTargetOrder(activeDrawerOrder)}
-                    className="px-3 py-1.5 rounded-lg bg-red-500/10 text-danger font-medium hover:bg-red-500/20"
+                    className="px-3 py-2 rounded-lg bg-red-500/10 text-danger font-medium hover:bg-red-500/20"
                   >
                     Cancel Order
                   </button>
@@ -956,7 +958,7 @@ function OrdersManagementContent() {
                 Line Items ({activeDrawerOrder.lineItems.length})
               </h3>
               <div className="rounded-xl border border-line overflow-hidden">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse table-sticky-first">
                   <thead>
                     <tr className="border-b border-line bg-surface-sunken text-xs text-ink-muted">
                       <th className="py-2 px-3">Product / SKU</th>
@@ -968,19 +970,19 @@ function OrdersManagementContent() {
                   <tbody className="divide-y divide-line-subtle">
                     {activeDrawerOrder.lineItems.map((li) => (
                       <tr key={li.id}>
-                        <td className="py-2.5 px-3">
+                        <td className="py-3 px-3">
                           <div className="font-semibold text-ink">
                             {li.productName}
                           </div>
                           <div className="tabular-nums text-xs text-ink-muted">{li.sku}</div>
                         </td>
-                        <td className="py-2.5 px-3 text-right tabular-nums">
+                        <td className="py-3 px-3 text-right tabular-nums">
                           {li.quantity}
                         </td>
-                        <td className="py-2.5 px-3 text-right tabular-nums">
+                        <td className="py-3 px-3 text-right tabular-nums">
                           {formatCurrency(li.unitPrice, settings.currency, settings.numberFormat)}
                         </td>
-                        <td className="py-2.5 px-3 text-right tabular-nums font-semibold">
+                        <td className="py-3 px-3 text-right tabular-nums font-semibold">
                           {formatCurrency(li.subtotal, settings.currency, settings.numberFormat)}
                         </td>
                       </tr>

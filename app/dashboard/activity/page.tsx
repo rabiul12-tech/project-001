@@ -89,7 +89,7 @@ export default function ActivityFeedPage() {
           <button
             type="button"
             onClick={handleExportActivityLog}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export Activity CSV</span>
@@ -98,8 +98,8 @@ export default function ActivityFeedPage() {
       />
 
       {/* Transparency Notice */}
-      <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-2.5 text-xs text-ink-secondary">
-        <Info className="w-4 h-4 text-accent mt-0.5 shrink-0" />
+      <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-3 text-xs text-ink-secondary">
+        <Info className="w-4 h-4 text-accent mt-1 shrink-0" />
         <span>
           <strong>Client-Side Demo Activity Log:</strong> Events below are persisted locally in your browser&apos;s LocalStorage to demonstrate operational traceability. This is a frontend demonstration log, not a tamper-proof server security audit log.
         </span>
@@ -117,7 +117,7 @@ export default function ActivityFeedPage() {
                   setCategoryFilter(cat);
                   setPage(1);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                   categoryFilter === cat
                     ? 'bg-accent-strong text-white'
                     : 'bg-surface-sunken text-ink-muted hover:text-ink'
@@ -129,7 +129,7 @@ export default function ActivityFeedPage() {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 text-xs">
+        <div className="flex flex-wrap items-center gap-3 text-xs">
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -140,7 +140,7 @@ export default function ActivityFeedPage() {
                 setPage(1);
               }}
               placeholder="Search actor, action, target..."
-              className="pl-8 pr-3 py-1.5 w-56 rounded-lg bg-surface-sunken border border-line"
+              className="pl-8 pr-3 py-2 w-56 rounded-lg bg-surface-sunken border border-line"
             />
           </div>
 
@@ -152,7 +152,7 @@ export default function ActivityFeedPage() {
               setStartDateFilter(e.target.value);
               setPage(1);
             }}
-            className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line tabular-nums"
+            className="px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
           />
           <input
             type="date"
@@ -162,7 +162,7 @@ export default function ActivityFeedPage() {
               setEndDateFilter(e.target.value);
               setPage(1);
             }}
-            className="px-2.5 py-1.5 rounded-lg bg-surface-sunken border border-line tabular-nums"
+            className="px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
           />
         </div>
       </div>
@@ -189,7 +189,7 @@ export default function ActivityFeedPage() {
                 onClick={() => setSelectedEvent(act)}
                 className="p-4 sm:px-6 hover:bg-surface-hover/50 cursor-pointer transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
               >
-                <div className="flex items-start gap-3.5">
+                <div className="flex items-start gap-4">
                   <UserAvatar name={act.actorName} size="md" />
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -223,7 +223,7 @@ export default function ActivityFeedPage() {
                       e.stopPropagation();
                       setSelectedEvent(act);
                     }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs bg-surface-sunken text-ink-secondary hover:bg-blue-600 hover:text-white transition-colors"
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs bg-surface-sunken text-ink-secondary hover:bg-blue-600 hover:text-white transition-colors"
                   >
                     <Eye className="w-3 h-3" />
                     <span>Details</span>
@@ -252,7 +252,7 @@ export default function ActivityFeedPage() {
       >
         {selectedEvent && (
           <div className="space-y-4 text-xs">
-            <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-2.5">
+            <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-3">
               <div className="flex justify-between">
                 <span className="text-ink-muted">Timestamp (ISO):</span>
                 <span className="tabular-nums">{selectedEvent.timestamp}</span>
@@ -275,7 +275,7 @@ export default function ActivityFeedPage() {
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-1.5">
+            <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-2">
               <div className="font-semibold text-ink">
                 Event Summary
               </div>

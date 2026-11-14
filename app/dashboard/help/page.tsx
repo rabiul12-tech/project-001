@@ -37,7 +37,7 @@ export default function HelpDocumentationPage() {
               Aurelix Analytics is an Executive Business Intelligence and Commercial Ledger application designed for founders, CFOs, revenue operations teams, and enterprise analysts. Every metric displayed across the 11 application routes is computed dynamically from a unified underlying dataset of 250 customers, 80 catalog SKUs, 1,200 commercial orders, and 365 days of session telemetry.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <div className="p-3.5 rounded-lg bg-surface-sunken border border-line">
+              <div className="p-4 rounded-lg bg-surface-sunken border border-line">
                 <div className="font-bold text-ink">Core Analytics & Ledger</div>
                 <p className="text-ink-muted mt-1">
                   Use <Link href="/dashboard" className="text-accent hover:underline">Overview</Link>,{' '}
@@ -45,7 +45,7 @@ export default function HelpDocumentationPage() {
                   <Link href="/dashboard/revenue" className="text-accent hover:underline">Revenue</Link> to inspect net revenue trends, channel share, and line-item reconciliations.
                 </p>
               </div>
-              <div className="p-3.5 rounded-lg bg-surface-sunken border border-line">
+              <div className="p-4 rounded-lg bg-surface-sunken border border-line">
                 <div className="font-bold text-ink">Operational Workflows</div>
                 <p className="text-ink-muted mt-1">
                   Use <Link href="/dashboard/customers" className="text-accent hover:underline">Customers</Link>,{' '}
@@ -64,7 +64,7 @@ export default function HelpDocumentationPage() {
             <h2 className="text-heading text-ink">
               How Revenue, Refunds, AOV, and Conversion Rates Reconcile
             </h2>
-            <ul className="space-y-2 text-ink-secondary list-disc pl-5">
+            <ul className="space-y-2 text-ink-secondary list-disc pl-6">
               <li>
                 <strong>Gross Revenue:</strong> Sum of line-item subtotals (before commercial discounts and tax) across settled (<code>Paid</code> and <code>Refunded</code>) orders. Uncollected <code>Pending</code> and <code>Failed/Canceled</code> orders are excluded from realized revenue and tracked separately.
               </li>
@@ -91,7 +91,7 @@ export default function HelpDocumentationPage() {
             <p className="text-ink-secondary">
               On first visit, Aurelix runs a deterministic Mulberry32 seed generator (`seed: 20261113`) and persists the workspace under key <code>aurelix_analytics_v1_store</code> in your browser&apos;s LocalStorage. All subsequent edits survive page refreshes without overwriting your changes.
             </p>
-            <ul className="space-y-2 text-ink-secondary list-disc pl-5">
+            <ul className="space-y-2 text-ink-secondary list-disc pl-6">
               <li>
                 <strong>Corrupt Data Recovery:</strong> If stored JSON is manually edited and fails Zod schema validation on startup, Aurelix preserves a snapshot under <code>aurelix_analytics_v1_corrupt_snapshot</code>, restores clean seed data, and notifies you with an alert banner.
               </li>
@@ -109,22 +109,22 @@ export default function HelpDocumentationPage() {
               <Keyboard className="w-4 h-4" />
               <span>Keyboard Shortcuts</span>
             </div>
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between py-1.5 border-b border-line-subtle">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-line-subtle">
                 <span className="text-ink-secondary">Open Command Palette</span>
-                <kbd className="px-2 py-0.5 rounded bg-surface-sunken border border-line tabular-nums">
+                <kbd className="px-2 py-1 rounded bg-surface-sunken border border-line tabular-nums">
                   Ctrl / ⌘ + K
                 </kbd>
               </div>
-              <div className="flex items-center justify-between py-1.5 border-b border-line-subtle">
+              <div className="flex items-center justify-between py-2 border-b border-line-subtle">
                 <span className="text-ink-secondary">Close Active Modal / Drawer</span>
-                <kbd className="px-2 py-0.5 rounded bg-surface-sunken border border-line tabular-nums">
+                <kbd className="px-2 py-1 rounded bg-surface-sunken border border-line tabular-nums">
                   ESC
                 </kbd>
               </div>
-              <div className="flex items-center justify-between py-1.5">
+              <div className="flex items-center justify-between py-2">
                 <span className="text-ink-secondary">Print Current Report</span>
-                <kbd className="px-2 py-0.5 rounded bg-surface-sunken border border-line tabular-nums">
+                <kbd className="px-2 py-1 rounded bg-surface-sunken border border-line tabular-nums">
                   Ctrl / ⌘ + P
                 </kbd>
               </div>
