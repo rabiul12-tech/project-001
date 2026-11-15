@@ -90,38 +90,46 @@ export default function DeepAnalyticsPage() {
       (o) => o.paymentStatus === 'Paid' || o.paymentStatus === 'Refunded'
     ).length;
 
-    const topBase = Math.max(1, totalSessions);
+    const topBase = totalSessions > 0 ? totalSessions : 0;
+    const visitorBase = uniqueVisitors > 0 ? uniqueVisitors : 0;
+    const toTopPercent = (count: number, decimals = 1) => {
+      if (topBase === 0) return 0;
+      const factor = 10 ** decimals;
+      return Math.round((count / topBase) * 100 * factor) / factor;
+    };
+    const visitorConv =
+      visitorBase > 0 ? ((settledOrders / visitorBase) * 100).toFixed(2) : '0.00';
 
     return [
       {
         stage: 'Total Sessions (Simulated Telemetry)',
         count: totalSessions,
-        rateFromTop: 100,
+        rateFromTop: topBase > 0 ? 100 : 0,
         conversionNote: 'All web & partner portal visits',
       },
       {
         stage: 'Unique Qualified Visitors (Demo)',
         count: uniqueVisitors,
-        rateFromTop: Math.round((uniqueVisitors / topBase) * 1000) / 10,
+        rateFromTop: toTopPercent(uniqueVisitors, 1),
         conversionNote: 'De-duplicated decision makers',
       },
       {
         stage: 'Architecture Evaluation / Trial',
         count: demoRequests,
-        rateFromTop: Math.round((demoRequests / topBase) * 1000) / 10,
+        rateFromTop: toTopPercent(demoRequests, 1),
         conversionNote: 'Interactive sandbox or quote initiated',
       },
       {
         stage: 'Commercial Proposal / Checkout',
         count: checkoutInitiated,
-        rateFromTop: Math.round((checkoutInitiated / topBase) * 1000) / 10,
+        rateFromTop: toTopPercent(checkoutInitiated, 1),
         conversionNote: 'Contract terms or cart configured',
       },
       {
         stage: 'Settled Commercial Orders (Actual Ledger)',
         count: settledOrders,
-        rateFromTop: Math.round((settledOrders / Math.max(1, uniqueVisitors)) * 10000) / 100,
-        conversionNote: 'Reconciled Paid & Refunded orders',
+        rateFromTop: toTopPercent(settledOrders, 2),
+        conversionNote: `Reconciled Paid & Refunded orders (${visitorConv}% of unique visitors)`,
       },
     ];
   }, [dailySessions, dateWindow, windowOrders]);
@@ -322,7 +330,11 @@ export default function DeepAnalyticsPage() {
                 <div className="w-full h-2 rounded-full bg-surface-hover overflow-hidden">
                   <div
                     className="h-full rounded-full bg-accent-strong dark:bg-blue-500"
-                    style={{ width: `${Math.min(100, Math.max(6, st.rateFromTop))}%` }}
+                    style={{
+                      width: `${
+                        st.count === 0 ? 0 : Math.min(100, Math.max(2, st.rateFromTop))
+                      }%`,
+                    }}
                   />
                 </div>
                 <div className="text-xs text-ink-muted">
@@ -350,7 +362,7 @@ export default function DeepAnalyticsPage() {
           />
 
           <div className="pt-4 border-t border-line-subtle">
-            <h3 className="text-xs font-bold text-ink mb-3">
+            <h3 className="text-subheading text-ink mb-3">
               Sales Channel Distribution (All Channels in Period)
             </h3>
             <ChannelDonutChart
@@ -389,11 +401,11 @@ export default function DeepAnalyticsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse table-sticky-first">
               <thead>
-                <tr className="border-b border-line text-xs font-semibold text-ink-muted">
-                  <th className="pb-3">Financial / Operational Metric</th>
-                  <th className="pb-3 text-right">Current Period</th>
-                  <th className="pb-3 text-right">Previous Period</th>
-                  <th className="pb-3 text-right">Variance</th>
+                <tr className="border-b border-line text-caption font-semibold text-ink-muted">
+                  <th scope="col" className="pb-3">Financial / Operational Metric</th>
+                  <th scope="col" className="pb-3 text-right">Current Period</th>
+                  <th scope="col" className="pb-3 text-right">Previous Period</th>
+                  <th scope="col" className="pb-3 text-right">Variance</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-subtle text-xs">

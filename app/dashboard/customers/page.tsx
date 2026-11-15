@@ -17,7 +17,10 @@ import { useAppStore } from '@/stores/useAppStore';
 import {
   CustomerWithMetrics,
   enrichCustomersWithMetrics,
+  toCents,
+  fromCents,
 } from '@/lib/calculations/analytics';
+import { canPerformAction, getPermissionDeniedMessage } from '@/lib/permissions';
 import {
   convertRowsToCsv,
   formatCurrency,
@@ -67,7 +70,7 @@ function CustomersDirectoryContent() {
   const [editingCustomer, setEditingCustomer] = useState<CustomerWithMetrics | null>(null);
   const [deleteTargetIds, setDeleteTargetIds] = useState<string[] | null>(null);
 
-  const isViewerRole = settings.activeRolePreview === 'Viewer';
+  const canMutateCustomers = canPerformAction(settings.activeRolePreview, 'mutate_customers');
 
   const {
     register,
@@ -127,22 +130,33 @@ function CustomersDirectoryContent() {
   }, [enrichedCustomers, searchQuery, segmentFilter, statusFilter, sortField, sortAsc]);
 
   const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / pageSize));
+  const safePage = Math.min(page, totalPages);
   const paginatedCustomers = useMemo(
-    () => filteredCustomers.slice((page - 1) * pageSize, page * pageSize),
-    [filteredCustomers, page, pageSize]
+    () => filteredCustomers.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredCustomers, safePage, pageSize]
   );
 
   const segmentStats = useMemo(() => {
-    const totalLtv = enrichedCustomers.reduce((s, c) => s + c.lifetimeSpend, 0);
+    const totalLtvCents = enrichedCustomers.reduce((s, c) => s + toCents(c.lifetimeSpend), 0);
     const activeCount = enrichedCustomers.filter((c) => c.status === 'Active').length;
     const enterpriseCount = enrichedCustomers.filter((c) => c.segment === 'Enterprise').length;
-    const avgLtv = enrichedCustomers.length > 0 ? totalLtv / enrichedCustomers.length : 0;
-    return { totalLtv, activeCount, enterpriseCount, avgLtv };
+    const avgLtvCents =
+      enrichedCustomers.length > 0 ? Math.round(totalLtvCents / enrichedCustomers.length) : 0;
+    return {
+      totalLtv: fromCents(totalLtvCents),
+      activeCount,
+      enterpriseCount,
+      avgLtv: fromCents(avgLtvCents),
+    };
   }, [enrichedCustomers]);
 
   const openCreateModal = () => {
-    if (isViewerRole) {
-      addToast('Viewer role active', 'Switch role preview to Owner or Admin to create records.', 'warning');
+    if (!canMutateCustomers) {
+      addToast(
+        'Permission restricted',
+        getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_customers'),
+        'warning'
+      );
       return;
     }
     setEditingCustomer(null);
@@ -160,8 +174,12 @@ function CustomersDirectoryContent() {
   };
 
   const openEditModal = (cust: CustomerWithMetrics) => {
-    if (isViewerRole) {
-      addToast('Viewer role active', 'Switch role preview to Owner or Admin to edit records.', 'warning');
+    if (!canMutateCustomers) {
+      addToast(
+        'Permission restricted',
+        getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_customers'),
+        'warning'
+      );
       return;
     }
     setEditingCustomer(cust);
@@ -178,13 +196,34 @@ function CustomersDirectoryContent() {
     setModalOpen(true);
   };
 
+  const requestDeleteCustomers = (ids: string[]) => {
+    if (!canMutateCustomers) {
+      addToast(
+        'Permission restricted',
+        getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_customers'),
+        'warning'
+      );
+      return;
+    }
+    setDeleteTargetIds(ids);
+  };
+
   const onSubmitForm = (values: CustomerFormValues) => {
+    if (!canMutateCustomers) {
+      addToast(
+        'Permission restricted',
+        getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_customers'),
+        'warning'
+      );
+      return;
+    }
     if (editingCustomer) {
       updateCustomer(editingCustomer.id, values);
+      setModalOpen(false);
     } else {
-      addCustomer(values);
+      const created = addCustomer(values);
+      if (created) setModalOpen(false);
     }
-    setModalOpen(false);
   };
 
   const handleSort = (field: typeof sortField) => {
@@ -194,6 +233,7 @@ function CustomersDirectoryContent() {
       setSortField(field);
       setSortAsc(false);
     }
+    setPage(1);
   };
 
   const toggleSelectAllOnPage = () => {
@@ -273,7 +313,9 @@ function CustomersDirectoryContent() {
             <button
               type="button"
               onClick={openCreateModal}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
+              disabled={!canMutateCustomers}
+              title={!canMutateCustomers ? getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_customers') : undefined}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Customer</span>
@@ -370,8 +412,10 @@ function CustomersDirectoryContent() {
             </button>
             <button
               type="button"
-              onClick={() => setDeleteTargetIds(selectedIds)}
-              className="px-3 py-2 rounded-lg text-xs font-medium bg-red-600/10 text-danger hover:bg-red-600/20"
+              disabled={!canMutateCustomers}
+              title={!canMutateCustomers ? getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_customers') : undefined}
+              onClick={() => requestDeleteCustomers(selectedIds)}
+              className="px-3 py-2 rounded-lg text-xs font-medium bg-red-600/10 text-danger hover:bg-red-600/20 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Delete Selected
             </button>
@@ -389,6 +433,7 @@ function CustomersDirectoryContent() {
             setSearchQuery('');
             setSegmentFilter('All');
             setStatusFilter('All');
+            setPage(1);
           }}
         />
       ) : (
@@ -396,8 +441,8 @@ function CustomersDirectoryContent() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm table-sticky-first">
               <thead>
-                <tr className="border-b border-line bg-surface-sunken/60 text-xs font-semibold text-ink-muted">
-                  <th className="py-3 px-4 w-9">
+                <tr className="border-b border-line bg-surface-sunken/60 text-caption font-semibold text-ink-muted">
+                  <th scope="col" className="py-3 px-4 w-9">
                     <input
                       type="checkbox"
                       aria-label="Select all customers on page"
@@ -409,7 +454,7 @@ function CustomersDirectoryContent() {
                       className="rounded border-line"
                     />
                   </th>
-                  <th className="py-3 px-4">
+                  <th scope="col" className="py-3 px-4">
                     <button
                       type="button"
                       onClick={() => handleSort('company')}
@@ -419,9 +464,9 @@ function CustomersDirectoryContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th className="py-3 px-4">Segment · Country</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">
+                  <th scope="col" className="py-3 px-4">Segment · Country</th>
+                  <th scope="col" className="py-3 px-4">Status</th>
+                  <th scope="col" className="py-3 px-4 text-right">
                     <button
                       type="button"
                       onClick={() => handleSort('ordersCount')}
@@ -431,7 +476,7 @@ function CustomersDirectoryContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th className="py-3 px-4 text-right">
+                  <th scope="col" className="py-3 px-4 text-right">
                     <button
                       type="button"
                       onClick={() => handleSort('lifetimeSpend')}
@@ -441,7 +486,7 @@ function CustomersDirectoryContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th className="py-3 px-4">
+                  <th scope="col" className="py-3 px-4">
                     <button
                       type="button"
                       onClick={() => handleSort('lastOrderDate')}
@@ -451,7 +496,7 @@ function CustomersDirectoryContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th scope="col" className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-subtle">
@@ -522,16 +567,20 @@ function CustomersDirectoryContent() {
                         <button
                           type="button"
                           onClick={() => openEditModal(cust)}
+                          disabled={!canMutateCustomers}
+                          title={!canMutateCustomers ? getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_customers') : undefined}
                           aria-label={`Edit ${cust.company}`}
-                          className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover"
+                          className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           type="button"
-                          onClick={() => setDeleteTargetIds([cust.id])}
+                          onClick={() => requestDeleteCustomers([cust.id])}
+                          disabled={!canMutateCustomers}
+                          title={!canMutateCustomers ? getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_customers') : undefined}
                           aria-label={`Delete ${cust.company}`}
-                          className="p-2 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-500/10"
+                          className="p-2 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -544,7 +593,7 @@ function CustomersDirectoryContent() {
           </div>
 
           <Pagination
-            currentPage={page}
+            currentPage={safePage}
             totalPages={totalPages}
             totalItems={filteredCustomers.length}
             pageSize={pageSize}
@@ -737,12 +786,14 @@ function CustomersDirectoryContent() {
             <>
               <button
                 type="button"
+                disabled={!canMutateCustomers}
+                title={!canMutateCustomers ? getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_customers') : undefined}
                 onClick={() => {
                   const target = drawerCustomer;
                   setDrawerCustomer(null);
                   openEditModal(target);
                 }}
-                className="px-4 py-2 rounded-lg text-xs font-medium bg-surface-raised border border-line text-ink-secondary"
+                className="px-4 py-2 rounded-lg text-xs font-medium bg-surface-raised border border-line text-ink-secondary disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Edit Profile
               </button>
@@ -759,66 +810,66 @@ function CustomersDirectoryContent() {
       >
         {drawerCustomer && (
           <div className="space-y-6 text-xs">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="p-4 rounded-xl bg-surface-sunken border border-line">
-                <div className="text-ink-muted">Lifetime Spend</div>
-                <div className="text-heading tabular-nums text-ink mt-1">
+                <div className="text-caption text-ink-muted">Lifetime Spend</div>
+                <div className="text-base sm:text-heading font-semibold tabular-nums text-ink mt-1">
                   {formatCurrency(drawerCustomer.lifetimeSpend, settings.currency, settings.numberFormat)}
                 </div>
               </div>
               <div className="p-4 rounded-xl bg-surface-sunken border border-line">
-                <div className="text-ink-muted">Total Orders</div>
-                <div className="text-heading tabular-nums text-ink mt-1">
+                <div className="text-caption text-ink-muted">Total Orders</div>
+                <div className="text-base sm:text-heading font-semibold tabular-nums text-ink mt-1">
                   {drawerCustomer.ordersCount}
                 </div>
               </div>
               <div className="p-4 rounded-xl bg-surface-sunken border border-line">
-                <div className="text-ink-muted">Average Order</div>
-                <div className="text-heading tabular-nums text-ink mt-1">
+                <div className="text-caption text-ink-muted">Average Order</div>
+                <div className="text-base sm:text-heading font-semibold tabular-nums text-ink mt-1">
                   {formatCurrency(drawerCustomer.averageOrderValue, settings.currency, settings.numberFormat)}
                 </div>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-2">
-              <div className="flex justify-between">
+            <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-2.5 text-sm">
+              <div className="flex justify-between gap-4">
                 <span className="text-ink-muted">Primary Contact:</span>
                 <span className="font-medium text-ink">{drawerCustomer.name}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-4">
                 <span className="text-ink-muted">Email:</span>
                 <span className="tabular-nums text-ink-secondary">{drawerCustomer.email}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-4">
                 <span className="text-ink-muted">Phone:</span>
                 <span className="tabular-nums text-ink-secondary">{drawerCustomer.phone}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-4 items-center">
                 <span className="text-ink-muted">Status:</span>
                 <StatusBadge status={drawerCustomer.status} />
               </div>
               {drawerCustomer.notes && (
-                <div className="pt-2 border-t border-line-subtle text-ink-muted">
+                <div className="pt-2 border-t border-line-subtle text-xs text-ink-secondary leading-relaxed">
                   {drawerCustomer.notes}
                 </div>
               )}
             </div>
 
             <div className="space-y-3">
-              <h3 className="font-bold text-ink">
+              <h3 className="text-subheading text-ink">
                 Customer Purchase History ({drawerCustomerOrders.length} Orders)
               </h3>
               {drawerCustomerOrders.length === 0 ? (
-                <p className="text-ink-muted">No orders recorded for this account yet.</p>
+                <p className="text-sm text-ink-muted">No orders recorded for this account yet.</p>
               ) : (
                 <div className="rounded-xl border border-line overflow-hidden">
                   <table className="w-full text-left border-collapse table-sticky-first">
                     <thead>
-                      <tr className="border-b border-line bg-surface-sunken text-xs text-ink-muted">
-                        <th className="py-2 px-3">Order #</th>
-                        <th className="py-2 px-3">Date</th>
-                        <th className="py-2 px-3">Status</th>
-                        <th className="py-2 px-3 text-right">Total</th>
+                      <tr className="border-b border-line bg-surface-sunken text-caption font-medium text-ink-muted">
+                        <th scope="col" className="py-2 px-3">Order #</th>
+                        <th scope="col" className="py-2 px-3">Date</th>
+                        <th scope="col" className="py-2 px-3">Status</th>
+                        <th scope="col" className="py-2 px-3 text-right">Total</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line-subtle">

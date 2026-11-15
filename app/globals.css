@@ -110,11 +110,16 @@
   --text-title: 2rem;
   --text-title--line-height: 2.5rem;
   --text-title--font-weight: 600;
-  --text-title--letter-spacing: -0.01em;
+  --text-title--letter-spacing: -0.02em;
 
-  --text-heading: 1rem;
-  --text-heading--line-height: 1.5rem;
+  --text-heading: 1.125rem;
+  --text-heading--line-height: 1.625rem;
   --text-heading--font-weight: 600;
+  --text-heading--letter-spacing: -0.01em;
+
+  --text-subheading: 0.9375rem;
+  --text-subheading--line-height: 1.375rem;
+  --text-subheading--font-weight: 600;
 
   --text-caption: 0.75rem;
   --text-caption--line-height: 1rem;
@@ -126,16 +131,16 @@
   font-size: clamp(1.375rem, 13cqi, 2rem);
   line-height: 2.25rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
-/* Uppercase micro-label: 12px, +0.04em tracking. */
+/* Uppercase micro-label: 12px, +0.06em tracking. */
 @utility text-micro {
   font-size: 0.75rem;
   line-height: 1rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 

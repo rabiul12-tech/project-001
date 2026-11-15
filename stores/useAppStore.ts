@@ -29,12 +29,23 @@ import {
 import { defaultCustomRange, goLive, nowIso as clockNowIso } from '@/lib/clock';
 import {
   loadFromLocalStorage,
-  resetLocalStorageToSeed,
   saveToLocalStorage,
+  sortActivitiesNewestFirst,
+  STORAGE_KEYS,
   validateAndImportBackupJson,
 } from '@/lib/storage/repository';
-import { calculateOrderTotalsFromItems } from '@/lib/calculations/analytics';
 import {
+  calculateOrderTotalsFromItems,
+  fromCents,
+  toCents,
+} from '@/lib/calculations/analytics';
+import {
+  canPerformAction,
+  getPermissionDeniedMessage,
+  PermissionAction,
+} from '@/lib/permissions';
+import {
+  backupStorageSchema,
   CreateOrderFormValues,
   CustomerFormValues,
   ProductFormValues,
@@ -69,7 +80,9 @@ interface AppStoreState {
 
   // Actions
   hydrateStore: () => void;
+  syncFromExternalStorage: () => void;
   dismissRecoveryAlert: () => void;
+  dismissStorageError: () => void;
   setDatePreset: (preset: DateRangePreset, customStart?: string, customEnd?: string) => void;
   setCommandPaletteOpen: (open: boolean) => void;
   setMobileNavOpen: (open: boolean) => void;
@@ -88,12 +101,12 @@ interface AppStoreState {
   setActiveRolePreview: (role: TeamRole) => void;
 
   // Customer CRUD
-  addCustomer: (values: CustomerFormValues) => Customer;
+  addCustomer: (values: CustomerFormValues) => Customer | null;
   updateCustomer: (id: string, values: CustomerFormValues) => void;
   deleteCustomers: (ids: string[]) => void;
 
   // Product CRUD
-  addProduct: (values: ProductFormValues) => Product;
+  addProduct: (values: ProductFormValues) => Product | null;
   updateProduct: (id: string, values: ProductFormValues) => void;
   archiveProducts: (ids: string[]) => void;
 
@@ -115,14 +128,14 @@ interface AppStoreState {
   // Reports
   saveReportConfig: (
     config: Omit<SavedReportConfig, 'id' | 'createdAt' | 'lastGeneratedAt' | 'createdBy'>
-  ) => SavedReportConfig;
+  ) => SavedReportConfig | null;
   deleteReportConfig: (id: string) => void;
   recordGeneratedReport: (
     record: Omit<GeneratedReportRecord, 'id' | 'generatedAt' | 'generatedBy'>
   ) => void;
 
   // Team CRUD
-  addTeamMember: (values: TeamMemberFormValues) => TeamMember;
+  addTeamMember: (values: TeamMemberFormValues) => TeamMember | null;
   updateTeamMember: (id: string, values: Partial<TeamMemberFormValues>) => void;
   removeTeamMember: (id: string) => void;
 
@@ -174,7 +187,60 @@ function createActivityRecord(
   };
 }
 
-export const useAppStore = create<AppStoreState>((set, get) => ({
+function generateNextOrderNumber(orders: Order[]): string {
+  let maxNum = 20260000;
+  for (const o of orders) {
+    const match = /^AUR-(\d+)$/.exec(o.orderNumber);
+    if (match) {
+      const n = Number(match[1]);
+      if (Number.isFinite(n) && n > maxNum) {
+        maxNum = n;
+      }
+    }
+  }
+  return `AUR-${maxNum + 1}`;
+}
+
+export const useAppStore = create<AppStoreState>((set, get) => {
+  const guardPermission = (action: PermissionAction): boolean => {
+    const role = get().settings.activeRolePreview;
+    if (canPerformAction(role, action)) return true;
+    get().addToast(
+      'Permission denied',
+      getPermissionDeniedMessage(role, action),
+      'error'
+    );
+    return false;
+  };
+
+  const commitState = (patch: Partial<AppStoreState>) => {
+    const prev = get();
+    const merged: AppStoreState = { ...prev, ...patch };
+    const normalizedActivities = patch.activities
+      ? sortActivitiesNewestFirst(patch.activities)
+      : prev.activities;
+    const nextState: AppStoreState = {
+      ...merged,
+      activities: normalizedActivities,
+    };
+    const saveRes = saveToLocalStorage(buildSnapshotFromState(nextState));
+    set({
+      ...patch,
+      ...(patch.activities ? { activities: normalizedActivities } : {}),
+      storageQuotaError: saveRes.ok
+        ? null
+        : saveRes.error || 'Unable to persist workspace updates to LocalStorage.',
+    });
+    if (!saveRes.ok) {
+      get().addToast(
+        'Storage persistence error',
+        saveRes.error || 'Changes could not be saved to LocalStorage.',
+        'error'
+      );
+    }
+  };
+
+  return {
   isHydrated: false,
   hydrationStatus: 'seeded',
   recoveryAlertMessage: null,
@@ -215,7 +281,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       products: result.data.products,
       orders: result.data.orders,
       team: result.data.team,
-      activities: result.data.activities,
+      activities: sortActivitiesNewestFirst(result.data.activities),
       savedReports: result.data.savedReports,
       reportHistory: result.data.reportHistory,
       dailySessions: result.data.dailySessions,
@@ -223,7 +289,35 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
     });
   },
 
+  syncFromExternalStorage: () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const rawJson = window.localStorage.getItem(STORAGE_KEYS.MAIN_STORE);
+      if (!rawJson) return;
+      const parsed = JSON.parse(rawJson);
+      const check = backupStorageSchema.safeParse(parsed);
+      if (!check.success) return;
+      if (parsed.schemaVersion > CURRENT_SCHEMA_VERSION) return;
+      const d = check.data;
+      set((state) => ({
+        seededAt: d.seededAt,
+        customers: d.customers,
+        products: d.products,
+        orders: d.orders,
+        team: d.team,
+        activities: sortActivitiesNewestFirst(d.activities),
+        savedReports: d.savedReports.length > 0 ? d.savedReports : state.savedReports,
+        reportHistory: d.reportHistory.length > 0 ? d.reportHistory : state.reportHistory,
+        dailySessions: d.dailySessions.length > 0 ? d.dailySessions : state.dailySessions,
+        settings: d.settings,
+      }));
+    } catch {
+      // Ignore malformed external storage mutations so current tab state stays safe
+    }
+  },
+
   dismissRecoveryAlert: () => set({ recoveryAlertMessage: null }),
+  dismissStorageError: () => set({ storageQuotaError: null }),
 
   setDatePreset: (preset, customStart, customEnd) => {
     set((state) => ({
@@ -256,12 +350,9 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
   },
 
   setTheme: (theme) => {
-    set((state) => {
-      const updatedSettings = { ...state.settings, theme };
-      const nextState = { ...state, settings: updatedSettings };
-      saveToLocalStorage(buildSnapshotFromState(nextState));
-      return { settings: updatedSettings };
-    });
+    const state = get();
+    const updatedSettings = { ...state.settings, theme };
+    commitState({ settings: updatedSettings });
   },
 
   toggleTheme: () => {
@@ -270,33 +361,30 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
   },
 
   setSidebarCollapsed: (collapsed) => {
-    set((state) => {
-      const updatedSettings = { ...state.settings, sidebarCollapsed: collapsed };
-      const nextState = { ...state, settings: updatedSettings };
-      saveToLocalStorage(buildSnapshotFromState(nextState));
-      return { settings: updatedSettings };
-    });
+    const state = get();
+    const updatedSettings = { ...state.settings, sidebarCollapsed: collapsed };
+    commitState({ settings: updatedSettings });
   },
 
   setActiveRolePreview: (role) => {
-    set((state) => {
-      const updatedSettings = { ...state.settings, activeRolePreview: role };
-      const event = createActivityRecord(
-        state,
-        'Team',
-        'Role Preview Switched',
-        `Role: ${role}`,
-        `Switched interactive demo interface preview to ${role} permissions.`
-      );
-      const nextActivities = [event, ...state.activities];
-      const nextState = { ...state, settings: updatedSettings, activities: nextActivities };
-      saveToLocalStorage(buildSnapshotFromState(nextState));
-      return { settings: updatedSettings, activities: nextActivities };
+    const state = get();
+    const updatedSettings = { ...state.settings, activeRolePreview: role };
+    const event = createActivityRecord(
+      state,
+      'Team',
+      'Role Preview Switched',
+      `Role: ${role}`,
+      `Switched interactive demo interface preview to ${role} permissions.`
+    );
+    commitState({
+      settings: updatedSettings,
+      activities: [event, ...state.activities],
     });
     get().addToast(`Role preview set to ${role}`, 'Interface permissions updated for demo preview.', 'default');
   },
 
   addCustomer: (values) => {
+    if (!guardPermission('mutate_customers')) return null;
     const state = get();
     const newCustomer: Customer = {
       ...values,
@@ -311,26 +399,20 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       `Added ${newCustomer.name} (${newCustomer.company}) in ${newCustomer.segment} segment.`,
       newCustomer.id
     );
-    const customers = [newCustomer, ...state.customers];
-    const activities = [event, ...state.activities];
-    const saveRes = saveToLocalStorage(
-      buildSnapshotFromState({ ...state, customers, activities })
-    );
-    set({
-      customers,
-      activities,
-      storageQuotaError: saveRes.ok ? null : saveRes.error || null,
+    commitState({
+      customers: [newCustomer, ...state.customers],
+      activities: [event, ...state.activities],
     });
     get().addToast('Customer added', `${newCustomer.company} has been saved.`, 'success');
     return newCustomer;
   },
 
   updateCustomer: (id, values) => {
+    if (!guardPermission('mutate_customers')) return;
     const state = get();
     const customers = state.customers.map((c) =>
       c.id === id ? { ...c, ...values } : c
     );
-    // Also synchronize customer display name/company/email on existing orders if needed while keeping historical integrity
     const orders = state.orders.map((o) =>
       o.customerId === id
         ? {
@@ -349,25 +431,21 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       `Updated profile and segment details for ${values.name} (${values.company}).`,
       id
     );
-    const activities = [event, ...state.activities];
-    const saveRes = saveToLocalStorage(
-      buildSnapshotFromState({ ...state, customers, orders, activities })
-    );
-    set({
+    commitState({
       customers,
       orders,
-      activities,
-      storageQuotaError: saveRes.ok ? null : saveRes.error || null,
+      activities: [event, ...state.activities],
     });
     get().addToast('Customer updated', `Changes to ${values.company} saved.`, 'success');
   },
 
   deleteCustomers: (ids) => {
+    if (!guardPermission('mutate_customers')) return;
     const state = get();
     const idSet = new Set(ids);
     const removed = state.customers.filter((c) => idSet.has(c.id));
+    if (removed.length === 0) return;
     const customers = state.customers.filter((c) => !idSet.has(c.id));
-    // Referenced orders remain intact with their stored snapshot fields
     const targetLabel =
       removed.length === 1 ? removed[0].company : `${removed.length} customer records`;
     const event = createActivityRecord(
@@ -377,13 +455,15 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       targetLabel,
       `Deleted ${targetLabel}. Historical order ledger snapshots were preserved.`
     );
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, customers, activities }));
-    set({ customers, activities });
+    commitState({
+      customers,
+      activities: [event, ...state.activities],
+    });
     get().addToast('Customer deleted', `${targetLabel} removed from directory.`, 'warning');
   },
 
   addProduct: (values) => {
+    if (!guardPermission('mutate_products')) return null;
     const state = get();
     const nowIso = clockNowIso();
     const prefix = values.sku.slice(0, 3).toUpperCase() || 'ENT';
@@ -402,15 +482,16 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       `Created SKU ${newProduct.sku} at $${newProduct.unitPrice.toLocaleString()} unit price.`,
       newProduct.id
     );
-    const products = [newProduct, ...state.products];
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, products, activities }));
-    set({ products, activities });
+    commitState({
+      products: [newProduct, ...state.products],
+      activities: [event, ...state.activities],
+    });
     get().addToast('Product created', `${newProduct.name} (${newProduct.sku}) added to catalog.`, 'success');
     return newProduct;
   },
 
   updateProduct: (id, values) => {
+    if (!guardPermission('mutate_products')) return;
     const state = get();
     const nowIso = clockNowIso();
     // Crucial requirement: updating a product's unitPrice does NOT mutate historical order line items
@@ -425,15 +506,18 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       `Updated catalog SKU ${values.sku} (New unit price: $${values.unitPrice.toLocaleString()}). Historical orders retain original price.`,
       id
     );
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, products, activities }));
-    set({ products, activities });
+    commitState({
+      products,
+      activities: [event, ...state.activities],
+    });
     get().addToast('Product updated', `${values.name} catalog details saved.`, 'success');
   },
 
   archiveProducts: (ids) => {
+    if (!guardPermission('mutate_products')) return;
     const state = get();
     const idSet = new Set(ids);
+    if (idSet.size === 0) return;
     const products = state.products.map((p) =>
       idSet.has(p.id) ? { ...p, status: 'Archived' as const, updatedAt: clockNowIso() } : p
     );
@@ -444,13 +528,15 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       `${ids.length} SKU(s)`,
       `Archived ${ids.length} product catalog item(s).`
     );
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, products, activities }));
-    set({ products, activities });
+    commitState({
+      products,
+      activities: [event, ...state.activities],
+    });
     get().addToast('Products archived', `${ids.length} product(s) marked as Archived.`, 'default');
   },
 
   createOrder: (values) => {
+    if (!guardPermission('mutate_orders')) return null;
     const state = get();
     const customer = state.customers.find((c) => c.id === values.customerId);
     if (!customer) return null;
@@ -470,23 +556,26 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
         category: product.category,
         quantity,
         unitPrice,
-        subtotal: Math.round(quantity * unitPrice * 100) / 100,
+        subtotal: fromCents(Math.round(quantity * toCents(unitPrice))),
       });
     }
 
     if (lineItems.length === 0) return null;
 
-    const taxRate = Number(values.taxRatePercent) / 100;
+    const rawTaxRatePercent = Number.isFinite(Number(values.taxRatePercent))
+      ? Number(values.taxRatePercent)
+      : 8.5;
+    const taxRate = Math.max(0, rawTaxRatePercent) / 100;
     const totals = calculateOrderTotalsFromItems(
       lineItems,
       Number(values.discountAmount) || 0,
       taxRate
     );
 
-    const nextNumber = 20260000 + state.orders.length + 1;
+    const orderNumber = generateNextOrderNumber(state.orders);
     const newOrder: Order = {
       id: `ord_${Date.now()}`,
-      orderNumber: `AUR-${nextNumber}`,
+      orderNumber,
       customerId: customer.id,
       customerName: customer.name,
       customerEmail: customer.email,
@@ -505,23 +594,27 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       notes: values.notes,
     };
 
-    // Decrement product stock levels safely
-    const products = state.products.map((p) => {
-      const orderedQty = lineItems
-        .filter((li) => li.productId === p.id)
-        .reduce((acc, li) => acc + li.quantity, 0);
-      if (orderedQty === 0) return p;
-      const nextStock = Math.max(0, p.stockLevel - orderedQty);
-      const nextStatus: ProductStatus =
-        p.status === 'Archived'
-          ? 'Archived'
-          : nextStock === 0
-          ? 'Low Stock'
-          : nextStock <= 14
-          ? 'Low Stock'
-          : 'Active';
-      return { ...p, stockLevel: nextStock, status: nextStatus };
-    });
+    // Decrement product stock levels safely (skip inventory decrement if Canceled/Failed)
+    const shouldDecrementStock =
+      values.paymentStatus !== 'Failed' && values.fulfillmentStatus !== 'Canceled';
+    const products = shouldDecrementStock
+      ? state.products.map((p) => {
+          const orderedQty = lineItems
+            .filter((li) => li.productId === p.id)
+            .reduce((acc, li) => acc + li.quantity, 0);
+          if (orderedQty === 0) return p;
+          const nextStock = Math.max(0, p.stockLevel - orderedQty);
+          const nextStatus: ProductStatus =
+            p.status === 'Archived'
+              ? 'Archived'
+              : nextStock === 0
+              ? 'Low Stock'
+              : nextStock <= 14
+              ? 'Low Stock'
+              : 'Active';
+          return { ...p, stockLevel: nextStock, status: nextStatus };
+        })
+      : state.products;
 
     const event = createActivityRecord(
       state,
@@ -532,10 +625,11 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       newOrder.id
     );
 
-    const orders = [newOrder, ...state.orders];
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, orders, products, activities }));
-    set({ orders, products, activities });
+    commitState({
+      orders: [newOrder, ...state.orders],
+      products,
+      activities: [event, ...state.activities],
+    });
     get().addToast(
       'Order created',
       `${newOrder.orderNumber} ($${newOrder.totalAmount.toLocaleString()}) recorded.`,
@@ -545,21 +639,26 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
   },
 
   updateOrderStatus: (orderId, paymentStatus, fulfillmentStatus) => {
+    if (!guardPermission('mutate_orders')) return;
     const state = get();
     const target = state.orders.find((o) => o.id === orderId);
     if (!target) return;
 
     const orders = state.orders.map((o) => {
       if (o.id !== orderId) return o;
+      const effectivePayment =
+        fulfillmentStatus === 'Canceled' && paymentStatus === 'Pending'
+          ? ('Failed' as const)
+          : paymentStatus;
       const refundedAmount =
-        paymentStatus === 'Refunded'
+        effectivePayment === 'Refunded'
           ? o.refundedAmount > 0
-            ? o.refundedAmount
+            ? Math.min(o.totalAmount, o.refundedAmount)
             : o.totalAmount
           : 0;
       return {
         ...o,
-        paymentStatus,
+        paymentStatus: effectivePayment,
         fulfillmentStatus,
         refundedAmount,
       };
@@ -573,9 +672,10 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       `Updated ${target.orderNumber} to Payment: ${paymentStatus}, Fulfillment: ${fulfillmentStatus}.`,
       orderId
     );
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, orders, activities }));
-    set({ orders, activities });
+    commitState({
+      orders,
+      activities: [event, ...state.activities],
+    });
     get().addToast(
       'Order updated',
       `${target.orderNumber} updated to ${paymentStatus} / ${fulfillmentStatus}.`,
@@ -584,6 +684,7 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
   },
 
   cancelOrder: (orderId) => {
+    if (!guardPermission('mutate_orders')) return;
     const state = get();
     const target = state.orders.find((o) => o.id === orderId);
     if (!target) return;
@@ -607,28 +708,42 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       `Canceled order ${target.orderNumber} for ${target.customerCompany}.`,
       orderId
     );
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, orders, activities }));
-    set({ orders, activities });
+    commitState({
+      orders,
+      activities: [event, ...state.activities],
+    });
     get().addToast('Order canceled', `${target.orderNumber} has been marked as Canceled.`, 'warning');
   },
 
   refundOrder: (orderId, refundAmount) => {
+    if (!guardPermission('issue_refund')) return;
     const state = get();
     const target = state.orders.find((o) => o.id === orderId);
     if (!target) return;
 
-    const finalRefund =
-      refundAmount !== undefined
-        ? Math.min(target.totalAmount, Math.max(0.01, refundAmount))
-        : target.totalAmount;
+    if (target.paymentStatus === 'Failed' || target.fulfillmentStatus === 'Canceled') {
+      get().addToast(
+        'Refund unavailable',
+        `Canceled or failed order ${target.orderNumber} has no collected settlement to refund.`,
+        'warning'
+      );
+      return;
+    }
+
+    const totalCents = toCents(target.totalAmount);
+    const requestedCents =
+      refundAmount !== undefined && Number.isFinite(refundAmount)
+        ? toCents(refundAmount)
+        : totalCents;
+    const clampedCents = Math.min(totalCents, Math.max(1, requestedCents));
+    const finalRefund = fromCents(clampedCents);
 
     const orders = state.orders.map((o) =>
       o.id === orderId
         ? {
             ...o,
             paymentStatus: 'Refunded' as const,
-            refundedAmount: Math.round(finalRefund * 100) / 100,
+            refundedAmount: finalRefund,
           }
         : o
     );
@@ -641,9 +756,10 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       `Simulated refund of $${finalRefund.toLocaleString()} for ${target.orderNumber} (${target.customerCompany}).`,
       orderId
     );
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, orders, activities }));
-    set({ orders, activities });
+    commitState({
+      orders,
+      activities: [event, ...state.activities],
+    });
     get().addToast(
       'Simulated refund processed',
       `Refund of $${finalRefund.toLocaleString()} recorded on ${target.orderNumber}.`,
@@ -652,15 +768,23 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
   },
 
   bulkUpdateOrderStatus: (orderIds, paymentStatus, fulfillmentStatus) => {
+    if (!guardPermission('mutate_orders')) return;
     const state = get();
     const idSet = new Set(orderIds);
+    if (idSet.size === 0) return;
     const orders = state.orders.map((o) => {
       if (!idSet.has(o.id)) return o;
+      const refundedAmount =
+        paymentStatus === 'Refunded'
+          ? o.refundedAmount > 0
+            ? Math.min(o.totalAmount, o.refundedAmount)
+            : o.totalAmount
+          : 0;
       return {
         ...o,
         paymentStatus,
         fulfillmentStatus,
-        refundedAmount: paymentStatus === 'Refunded' ? o.totalAmount : 0,
+        refundedAmount,
       };
     });
     const event = createActivityRecord(
@@ -670,13 +794,15 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       `${orderIds.length} Orders`,
       `Updated ${orderIds.length} orders to ${paymentStatus} / ${fulfillmentStatus}.`
     );
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, orders, activities }));
-    set({ orders, activities });
+    commitState({
+      orders,
+      activities: [event, ...state.activities],
+    });
     get().addToast('Bulk update complete', `Updated ${orderIds.length} order records.`, 'success');
   },
 
   saveReportConfig: (config) => {
+    if (!guardPermission('manage_reports')) return null;
     const state = get();
     const nowIso = clockNowIso();
     const newConfig: SavedReportConfig = {
@@ -695,23 +821,37 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       `Saved custom report configuration "${newConfig.name}" (${newConfig.type}).`,
       newConfig.id
     );
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, savedReports, activities }));
-    set({ savedReports, activities });
+    commitState({
+      savedReports,
+      activities: [event, ...state.activities],
+    });
     get().addToast('Report configuration saved', `"${newConfig.name}" added to templates.`, 'success');
     return newConfig;
   },
 
   deleteReportConfig: (id) => {
+    if (!guardPermission('manage_reports')) return;
     const state = get();
     const target = state.savedReports.find((r) => r.id === id);
+    if (!target) return;
     const savedReports = state.savedReports.filter((r) => r.id !== id);
-    saveToLocalStorage(buildSnapshotFromState({ ...state, savedReports }));
-    set({ savedReports });
-    get().addToast('Report removed', target ? `"${target.name}" deleted.` : 'Report deleted.', 'default');
+    const event = createActivityRecord(
+      state,
+      'Report',
+      'Report Template Deleted',
+      target.name,
+      `Removed saved report configuration "${target.name}".`,
+      id
+    );
+    commitState({
+      savedReports,
+      activities: [event, ...state.activities],
+    });
+    get().addToast('Report removed', `"${target.name}" deleted.`, 'default');
   },
 
   recordGeneratedReport: (record) => {
+    if (!guardPermission('export_csv')) return;
     const state = get();
     const newRecord: GeneratedReportRecord = {
       ...record,
@@ -727,12 +867,14 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       record.reportName,
       `Generated ${record.format} report "${record.reportName}" with ${record.rowCount} records.`
     );
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, reportHistory, activities }));
-    set({ reportHistory, activities });
+    commitState({
+      reportHistory,
+      activities: [event, ...state.activities],
+    });
   },
 
   addTeamMember: (values) => {
+    if (!guardPermission('manage_team')) return null;
     const state = get();
     const nowIso = clockNowIso();
     const newMember: TeamMember = {
@@ -752,32 +894,37 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       `Added ${newMember.name} (${newMember.title}) with simulated ${newMember.role} role.`,
       newMember.id
     );
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, team, activities }));
-    set({ team, activities });
+    commitState({
+      team,
+      activities: [event, ...state.activities],
+    });
     get().addToast('Demo team member added', `${newMember.name} added as ${newMember.role}.`, 'success');
     return newMember;
   },
 
   updateTeamMember: (id, values) => {
+    if (!guardPermission('manage_team')) return;
     const state = get();
     const target = state.team.find((m) => m.id === id);
+    if (!target) return;
     const team = state.team.map((m) => (m.id === id ? { ...m, ...values } : m));
     const event = createActivityRecord(
       state,
       'Team',
       'Demo Member Updated',
-      target?.name || 'Team Member',
-      `Updated profile or role assignment for ${target?.name || id}.`,
+      target.name,
+      `Updated profile or role assignment for ${target.name}.`,
       id
     );
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, team, activities }));
-    set({ team, activities });
+    commitState({
+      team,
+      activities: [event, ...state.activities],
+    });
     get().addToast('Team member updated', 'Demo profile changes saved.', 'success');
   },
 
   removeTeamMember: (id) => {
+    if (!guardPermission('manage_team')) return;
     const state = get();
     const target = state.team.find((m) => m.id === id);
     if (!target) return;
@@ -789,13 +936,15 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       target.name,
       `Removed ${target.name} from simulated workspace directory.`
     );
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, team, activities }));
-    set({ team, activities });
+    commitState({
+      team,
+      activities: [event, ...state.activities],
+    });
     get().addToast('Member removed', `${target.name} removed from demo roster.`, 'warning');
   },
 
   updateSettings: (partial) => {
+    if (!guardPermission('manage_settings')) return;
     const state = get();
     const settings: WorkspaceSettings = {
       ...state.settings,
@@ -812,14 +961,17 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       settings.workspaceName,
       'Updated workspace preferences and display formatting configuration.'
     );
-    const activities = [event, ...state.activities];
-    saveToLocalStorage(buildSnapshotFromState({ ...state, settings, activities }));
-    set({ settings, activities });
+    commitState({
+      settings,
+      activities: [event, ...state.activities],
+    });
     get().addToast('Settings saved', 'Your workspace preferences have been persisted.', 'success');
   },
 
   resetDemoData: () => {
-    const fresh = resetLocalStorageToSeed();
+    if (!guardPermission('manage_backups_and_reset')) return;
+    const fresh = generateDeterministicSeedData();
+    const saveRes = saveToLocalStorage(fresh);
     const range = defaultCustomRange();
     set({
       seededAt: fresh.seededAt,
@@ -829,14 +981,14 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       products: fresh.products,
       orders: fresh.orders,
       team: fresh.team,
-      activities: fresh.activities,
+      activities: sortActivitiesNewestFirst(fresh.activities),
       savedReports: fresh.savedReports,
       reportHistory: fresh.reportHistory,
       dailySessions: fresh.dailySessions,
       settings: fresh.settings,
       datePreset: '30d',
       recoveryAlertMessage: null,
-      storageQuotaError: null,
+      storageQuotaError: saveRes.ok ? null : saveRes.error || null,
     });
     get().addToast(
       'Demo dataset restored',
@@ -846,6 +998,15 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
   },
 
   importBackupJson: (rawJson) => {
+    if (!guardPermission('manage_backups_and_reset')) {
+      return {
+        ok: false,
+        error: getPermissionDeniedMessage(
+          get().settings.activeRolePreview,
+          'manage_backups_and_reset'
+        ),
+      };
+    }
     const res = validateAndImportBackupJson(rawJson);
     if (!res.ok || !res.data) {
       get().addToast('Backup import failed', res.error || 'Invalid backup file.', 'error');
@@ -858,11 +1019,12 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
       products: d.products,
       orders: d.orders,
       team: d.team,
-      activities: d.activities,
+      activities: sortActivitiesNewestFirst(d.activities),
       savedReports: d.savedReports,
       reportHistory: d.reportHistory,
       dailySessions: d.dailySessions,
       settings: d.settings,
+      storageQuotaError: null,
     });
     get().addToast('Backup restored', 'Workspace state imported and validated successfully.', 'success');
     return { ok: true };
@@ -871,4 +1033,5 @@ export const useAppStore = create<AppStoreState>((set, get) => ({
   getExportSnapshot: () => {
     return buildSnapshotFromState(get());
   },
-}));
+  };
+});

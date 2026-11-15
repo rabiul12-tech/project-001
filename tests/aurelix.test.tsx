@@ -58,8 +58,9 @@ describe('AURELIX Analytics — Comprehensive Business Logic & Workflow Suite (2
     });
 
     const updatedCustomers = useAppStore.getState().customers;
+    expect(created).not.toBeNull();
     expect(updatedCustomers.length).toBe(251);
-    expect(updatedCustomers[0].id).toBe(created.id);
+    expect(updatedCustomers[0].id).toBe(created?.id);
     expect(updatedCustomers[0].company).toBe('Thorne Quantum Labs');
   });
 
@@ -113,8 +114,9 @@ describe('AURELIX Analytics — Comprehensive Business Logic & Workflow Suite (2
       description: 'Hardware-backed cryptographic audit vault.',
     });
 
+    expect(newProd).not.toBeNull();
     expect(useAppStore.getState().products.length).toBe(81);
-    expect(useAppStore.getState().products[0].sku).toBe(newProd.sku);
+    expect(useAppStore.getState().products[0].sku).toBe(newProd?.sku);
   });
 
   // 6. Product prices are validated

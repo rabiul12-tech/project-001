@@ -55,7 +55,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-surface text-ink">
       {/* Top Bar Contract: 3 zones separated by gap-8 */}
-      <header className="sticky top-0 z-30 bg-surface-chrome/95-chrome/95 backdrop-blur-md border-b border-line">
+      <header className="sticky top-0 z-30 bg-surface-chrome/95 backdrop-blur-md border-b border-line">
         <div className="max-w-[1440px] mx-auto flex items-center justify-between gap-4 md:gap-8 px-4 md:px-6 py-4">
           <Link
             href="/"
@@ -66,7 +66,7 @@ export default function LandingPage() {
 
           <nav
             aria-label="Primary Navigation"
-            className="hidden md:flex items-center gap-6 text-sm font-medium text-ink-secondary-secondary"
+            className="hidden md:flex items-center gap-6 text-sm font-medium text-ink-secondary"
           >
             <a
               href="#capabilities"
@@ -113,13 +113,13 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-stretch">
             <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
               <div className="space-y-5">
-                <div className="text-xs font-medium text-ink-muted-muted">
+                <div className="text-micro text-ink-muted">
                   Executive Business Intelligence Suite · Deterministic Client-Side Ledger · Version 1.0
                 </div>
-                <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-ink leading-[1.12]">
+                <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-ink leading-[1.08]">
                   Financial clarity and operational precision for scaling enterprises.
                 </h1>
-                <p className="text-base text-ink-secondary-secondary max-w-2xl leading-relaxed">
+                <p className="text-base sm:text-lg text-ink-secondary max-w-2xl leading-relaxed">
                   Aurelix unifies net revenue recognition, multi-channel order workflows, cohort retention, and SKU price locking in a responsive, zero-latency executive command center.
                 </p>
               </div>
@@ -140,7 +140,7 @@ export default function LandingPage() {
                     <span>Inspect Revenue Ledger</span>
                   </Link>
                 </div>
-                <p className="text-xs text-ink-muted-muted">
+                <p className="text-xs text-ink-muted">
                   Immediate interactive access · No registration required · Changes persist locally in your browser
                 </p>
               </div>
@@ -176,42 +176,42 @@ export default function LandingPage() {
 
           {/* Full-Width 4-Column Live Telemetry Strip Below Hero Split */}
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-5 rounded-xl bg-surface-raised border border-line">
-              <div className="text-xs text-ink-muted-muted">12-Month Net Revenue</div>
-              <div className="mt-2 text-2xl font-bold tabular-nums text-ink">
+            <div className="@container p-5 rounded-xl bg-surface-raised border border-line">
+              <div className="text-caption text-ink-muted">12-Month Net Revenue</div>
+              <div className="mt-2 text-kpi text-ink">
                 {formatCurrency(annualMetrics.current.netRevenue, settings.currency, settings.numberFormat)}
               </div>
-              <div className="mt-1 text-xs text-ink-muted-muted">
+              <div className="mt-1.5 text-xs text-ink-muted">
                 Gross: {formatCurrency(annualMetrics.current.grossRevenue, settings.currency, settings.numberFormat, true)} · Refunds deducted
               </div>
             </div>
 
-            <div className="p-5 rounded-xl bg-surface-raised border border-line">
-              <div className="text-xs text-ink-muted-muted">Settled & Active Orders</div>
-              <div className="mt-2 text-2xl font-bold tabular-nums text-ink">
+            <div className="@container p-5 rounded-xl bg-surface-raised border border-line">
+              <div className="text-caption text-ink-muted">Settled & Active Orders</div>
+              <div className="mt-2 text-kpi text-ink">
                 {orders.length.toLocaleString()}
               </div>
-              <div className="mt-1 text-xs text-ink-muted-muted">
+              <div className="mt-1.5 text-xs text-ink-muted">
                 AOV: {formatCurrency(annualMetrics.current.averageOrderValue, settings.currency, settings.numberFormat)} across 4 channels
               </div>
             </div>
 
-            <div className="p-5 rounded-xl bg-surface-raised border border-line">
-              <div className="text-xs text-ink-muted-muted">Customer Directory</div>
-              <div className="mt-2 text-2xl font-bold tabular-nums text-ink">
+            <div className="@container p-5 rounded-xl bg-surface-raised border border-line">
+              <div className="text-caption text-ink-muted">Customer Directory</div>
+              <div className="mt-2 text-kpi text-ink">
                 {customers.length.toLocaleString()} Accounts
               </div>
-              <div className="mt-1 text-xs text-ink-muted-muted">
+              <div className="mt-1.5 text-xs text-ink-muted">
                 Enterprise, Mid-Market, SMB & Startup cohorts
               </div>
             </div>
 
-            <div className="p-5 rounded-xl bg-surface-raised border border-line">
-              <div className="text-xs text-ink-muted-muted">Catalog & Price Integrity</div>
-              <div className="mt-2 text-2xl font-bold tabular-nums text-ink">
+            <div className="@container p-5 rounded-xl bg-surface-raised border border-line">
+              <div className="text-caption text-ink-muted">Catalog & Price Integrity</div>
+              <div className="mt-2 text-kpi text-ink">
                 {products.length} Active SKUs
               </div>
-              <div className="mt-1 text-xs text-ink-muted-muted">
+              <div className="mt-1.5 text-xs text-ink-muted">
                 Historical order prices locked at checkout
               </div>
             </div>
@@ -224,10 +224,10 @@ export default function LandingPage() {
           className="max-w-[1440px] mx-auto px-6 py-12 border-t border-line"
         >
           <div className="max-w-2xl space-y-2 mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
+            <h2 className="text-2xl sm:text-title font-bold tracking-tight text-ink">
               Engineered for deep interactive workflows, not static screenshots.
             </h2>
-            <p className="text-sm text-ink-secondary-muted">
+            <p className="text-sm sm:text-base text-ink-secondary leading-relaxed">
               Every table, chart, filter, and modal in Aurelix Analytics operates against a unified client-side ledger with strict Zod validation.
             </p>
           </div>
@@ -235,18 +235,18 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="lg:col-span-2 p-6 rounded-xl bg-surface-raised border border-line flex flex-col justify-between space-y-4">
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-accent">
+                <div className="flex items-center gap-2 text-micro text-accent">
                   <BarChart3 className="w-4 h-4" />
                   <span>01. Unified Financial Calculation Engine</span>
                 </div>
-                <h3 className="text-lg font-bold text-ink">
+                <h3 className="text-heading text-ink">
                   Real-time reconciliation across Gross Revenue, Discounts, Taxes, and Simulated Refunds
                 </h3>
-                <p className="text-sm text-ink-secondary-muted leading-relaxed">
+                <p className="text-sm text-ink-secondary leading-relaxed">
                   When you create an order, issue a simulated partial or full refund, or cancel an uncollected invoice, every executive KPI, time-series visualization, and customer lifetime value calculation updates immediately without double-counting refunded revenue.
                 </p>
               </div>
-              <div className="pt-3 border-t border-line-subtle flex flex-wrap items-center gap-6 text-xs text-ink-muted-muted tabular-nums">
+              <div className="pt-3 border-t border-line-subtle flex flex-wrap items-center gap-6 text-xs text-ink-muted tabular-nums">
                 <span>Net = Subtotal − Discounts + Tax − Refunds</span>
                 <span>·</span>
                 <span>Zero-Denominator Safe</span>
@@ -255,14 +255,14 @@ export default function LandingPage() {
 
             <div className="p-6 rounded-xl bg-surface-raised border border-line flex flex-col justify-between space-y-4">
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-success">
+                <div className="flex items-center gap-2 text-micro text-success">
                   <ShieldCheck className="w-4 h-4" />
                   <span>02. Historical Price Locking</span>
                 </div>
-                <h3 className="text-lg font-bold text-ink">
+                <h3 className="text-heading text-ink">
                   Immutable order line-item snapshots
                 </h3>
-                <p className="text-sm text-ink-secondary-muted leading-relaxed">
+                <p className="text-sm text-ink-secondary leading-relaxed">
                   Editing a product’s catalog unit price updates future orders while preserving historical order prices and prior period revenue reports untouched.
                 </p>
               </div>
@@ -276,14 +276,14 @@ export default function LandingPage() {
               className="p-6 rounded-xl bg-surface-raised border border-line flex flex-col justify-between space-y-4"
             >
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-warning">
+                <div className="flex items-center gap-2 text-micro text-warning">
                   <Database className="w-4 h-4" />
                   <span>03. Versioned LocalStorage Persistence</span>
                 </div>
-                <h3 className="text-lg font-bold text-ink">
+                <h3 className="text-heading text-ink">
                   Resilient client storage with JSON backup & restore
                 </h3>
-                <p className="text-sm text-ink-secondary-muted leading-relaxed">
+                <p className="text-sm text-ink-secondary leading-relaxed">
                   All records persist across browser refreshes. Export full workspace snapshots as JSON, validate imported backups via Zod schemas, or reset to the deterministic seed anytime.
                 </p>
               </div>
@@ -294,14 +294,14 @@ export default function LandingPage() {
 
             <div className="lg:col-span-2 p-6 rounded-xl bg-surface-raised border border-line flex flex-col justify-between space-y-4">
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-accent">
+                <div className="flex items-center gap-2 text-micro text-accent">
                   <FileSpreadsheet className="w-4 h-4" />
                   <span>04. Executive Reporting & Command Palette</span>
                 </div>
-                <h3 className="text-lg font-bold text-ink">
+                <h3 className="text-heading text-ink">
                   Configurable CSV exports, print-ready financial statements, and instant ⌘K navigation
                 </h3>
-                <p className="text-sm text-ink-secondary-muted leading-relaxed">
+                <p className="text-sm text-ink-secondary leading-relaxed">
                   Build custom report templates filtered by sales channel, product category, and payment status. Download real CSV files reflecting your live filtered data or print formatted executive briefs.
                 </p>
               </div>
@@ -325,14 +325,14 @@ export default function LandingPage() {
         >
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs font-semibold text-accent">
+              <div className="flex items-center gap-2 text-micro text-accent">
                 <SlidersHorizontal className="w-4 h-4" />
                 <span>Interactive Persona & Role Preview</span>
               </div>
-              <h2 className="text-2xl font-bold tracking-tight text-ink">
+              <h2 className="text-2xl sm:text-title font-bold tracking-tight text-ink">
                 Launch the workspace under a simulated executive profile
               </h2>
-              <p className="text-sm text-ink-secondary-muted max-w-2xl">
+              <p className="text-sm text-ink-secondary max-w-2xl">
                 Select any seeded team profile below to preview how role-based UI controls and audit attributions behave across the application. Note: Role switching is a client-side UI demonstration and does not enforce backend security boundaries.
               </p>
             </div>
@@ -357,12 +357,12 @@ export default function LandingPage() {
                         <div className="text-sm font-bold text-ink truncate">
                           {member.name}
                         </div>
-                        <div className="text-xs text-ink-muted-muted truncate">
+                        <div className="text-xs text-ink-muted truncate">
                           {member.title}
                         </div>
                       </div>
                     </div>
-                    <div className="text-xs text-ink-secondary-muted space-y-1 pt-2 border-t border-line-subtle">
+                    <div className="text-xs text-ink-secondary space-y-1 pt-2 border-t border-line-subtle">
                       <div>
                         Simulated Role: <span className="font-semibold text-ink">{member.role}</span>
                       </div>
@@ -389,7 +389,7 @@ export default function LandingPage() {
 
       {/* Quiet Footer */}
       <footer className="border-t border-line bg-surface-raised py-8 px-6">
-        <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-ink-muted-muted">
+        <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-ink-muted">
           <div>
             <span className="font-bold text-ink">AURELIX Analytics</span> · Portfolio Case Study 001 · Client-Side Executive BI Demonstration
           </div>

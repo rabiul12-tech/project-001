@@ -65,6 +65,30 @@ export function rebaseToNow(
   };
 }
 
+export function sortActivitiesNewestFirst<T extends { timestamp: string; id: string }>(
+  activities: T[]
+): T[] {
+  return [...activities].sort((a, b) => {
+    const aMs = Date.parse(a.timestamp);
+    const bMs = Date.parse(b.timestamp);
+    const safeA = Number.isFinite(aMs) ? aMs : 0;
+    const safeB = Number.isFinite(bMs) ? bMs : 0;
+    if (safeB !== safeA) return safeB - safeA;
+    return b.id.localeCompare(a.id);
+  });
+}
+
+function validateUniqueIds(items: Array<{ id: string }>, entityName: string): string | null {
+  const seen = new Set<string>();
+  for (const item of items) {
+    if (seen.has(item.id)) {
+      return `Backup rejected: duplicate ${entityName} identifier "${item.id}".`;
+    }
+    seen.add(item.id);
+  }
+  return null;
+}
+
 export function migrateStorageSchema(raw: Record<string, unknown>): AurelixStorageSchema | null {
   try {
     const version = typeof raw.schemaVersion === 'number' ? raw.schemaVersion : 0;
@@ -78,7 +102,11 @@ export function migrateStorageSchema(raw: Record<string, unknown>): AurelixStora
       };
       const parsed = backupStorageSchema.safeParse(merged);
       if (parsed.success) {
-        return rebaseToNow(merged);
+        const rebased = rebaseToNow(merged);
+        return {
+          ...rebased,
+          activities: sortActivitiesNewestFirst(rebased.activities),
+        };
       }
     }
     return null;
@@ -109,8 +137,11 @@ export function loadFromLocalStorage(): StorageLoadResult {
     const parsedJson = JSON.parse(rawJson);
     const validation = backupStorageSchema.safeParse(parsedJson);
 
-    if (validation.success) {
-      // Ensure dailySessions and arrays exist
+    if (
+      validation.success &&
+      typeof parsedJson.schemaVersion === 'number' &&
+      parsedJson.schemaVersion <= CURRENT_SCHEMA_VERSION
+    ) {
       const fallbackSeed = generateDeterministicSeedData();
       const hydratedData: AurelixStorageSchema = {
         ...fallbackSeed,
@@ -126,15 +157,20 @@ export function loadFromLocalStorage(): StorageLoadResult {
           ? parsedJson.reportHistory
           : fallbackSeed.reportHistory,
       };
-      const current = rebaseToNow(hydratedData);
-      if (current !== hydratedData) saveToLocalStorage(current);
+      const rebased = rebaseToNow(hydratedData);
+      const sortedActivities = sortActivitiesNewestFirst(rebased.activities);
+      const current: AurelixStorageSchema =
+        sortedActivities !== rebased.activities
+          ? { ...rebased, activities: sortedActivities }
+          : rebased;
+      if (rebased !== hydratedData) saveToLocalStorage(current);
       return {
         data: current,
         status: 'hydrated',
       };
     }
 
-    // Attempt migration if version mismatch
+    // Attempt migration if version is older than current
     const migrated = migrateStorageSchema(parsedJson);
     if (migrated) {
       saveToLocalStorage(migrated);
@@ -145,7 +181,11 @@ export function loadFromLocalStorage(): StorageLoadResult {
     }
 
     // Corrupt data recovery: preserve snapshot and initialize fresh seed
-    window.localStorage.setItem(STORAGE_KEYS.CORRUPT_BACKUP, rawJson);
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.CORRUPT_BACKUP, rawJson);
+    } catch {
+      // Ignore quota errors while saving corrupt snapshot
+    }
     const recoveredSeed = generateDeterministicSeedData();
     saveToLocalStorage(recoveredSeed);
     return {
@@ -214,6 +254,27 @@ export function validateAndImportBackupJson(rawJsonString: string): {
 } {
   try {
     const parsed = JSON.parse(rawJsonString);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return {
+        ok: false,
+        error: 'Backup payload must be a JSON object.',
+      };
+    }
+
+    const version = (parsed as Record<string, unknown>).schemaVersion;
+    if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
+      return {
+        ok: false,
+        error: 'Unsupported or missing schemaVersion. Expected positive integer version.',
+      };
+    }
+    if (version > CURRENT_SCHEMA_VERSION) {
+      return {
+        ok: false,
+        error: `Unsupported backup schema version v${version}. This workspace supports up to v${CURRENT_SCHEMA_VERSION}.`,
+      };
+    }
+
     const result = backupStorageSchema.safeParse(parsed);
     if (!result.success) {
       const firstIssue = result.error.issues[0];
@@ -223,14 +284,47 @@ export function validateAndImportBackupJson(rawJsonString: string): {
       };
     }
 
-    // Referential integrity check: verify orders reference valid customer IDs or preserve historical customer snapshots
+    const dupCustomer = validateUniqueIds(result.data.customers, 'customer');
+    if (dupCustomer) return { ok: false, error: dupCustomer };
+    const dupProduct = validateUniqueIds(result.data.products, 'product');
+    if (dupProduct) return { ok: false, error: dupProduct };
+    const dupOrder = validateUniqueIds(result.data.orders, 'order');
+    if (dupOrder) return { ok: false, error: dupOrder };
+    const dupTeam = validateUniqueIds(result.data.team, 'team member');
+    if (dupTeam) return { ok: false, error: dupTeam };
+
+    // Validate order dates & activity timestamps are parseable
+    for (const o of result.data.orders) {
+      if (!Number.isFinite(Date.parse(o.orderDate))) {
+        return {
+          ok: false,
+          error: `Backup rejected: order "${o.orderNumber}" has invalid orderDate "${o.orderDate}".`,
+        };
+      }
+    }
+    for (const act of result.data.activities) {
+      if (!Number.isFinite(Date.parse(act.timestamp))) {
+        return {
+          ok: false,
+          error: `Backup rejected: activity "${act.id}" has invalid timestamp "${act.timestamp}".`,
+        };
+      }
+    }
+
     const fallbackSeed = generateDeterministicSeedData();
-    const validatedData: AurelixStorageSchema = rebaseToNow({
+    const merged: AurelixStorageSchema = {
       ...fallbackSeed,
-      ...parsed,
+      ...result.data,
+      dailySessions:
+        result.data.dailySessions.length > 0 ? result.data.dailySessions : fallbackSeed.dailySessions,
       schemaVersion: CURRENT_SCHEMA_VERSION,
       lastUpdatedAt: nowIso(),
-    });
+    };
+    const rebased = rebaseToNow(merged);
+    const validatedData: AurelixStorageSchema = {
+      ...rebased,
+      activities: sortActivitiesNewestFirst(rebased.activities),
+    };
 
     const saved = saveToLocalStorage(validatedData);
     if (!saved.ok) {

@@ -69,31 +69,36 @@ export const orderLineItemSchema = z.object({
   subtotal: z.coerce.number().nonnegative(),
 });
 
-export const orderSchema = z.object({
-  id: z.string().min(1),
-  orderNumber: z.string().min(1),
-  customerId: z.string().min(1, 'Customer is required'),
-  customerName: z.string().min(1),
-  customerEmail: z.string().email(),
-  customerCompany: z.string().min(1),
-  orderDate: z.string().min(1),
-  lineItems: z.array(orderLineItemSchema).min(1, 'At least one line item is required'),
-  subtotal: z.number().nonnegative(),
-  discountAmount: z.number().nonnegative(),
-  taxRate: z.number().min(0).max(0.5),
-  taxAmount: z.number().nonnegative(),
-  totalAmount: z.number().nonnegative(),
-  refundedAmount: z.number().nonnegative(),
-  paymentStatus: z.enum(['Paid', 'Pending', 'Refunded', 'Failed']),
-  fulfillmentStatus: z.enum(['Fulfilled', 'Processing', 'Scheduled', 'Canceled']),
-  salesChannel: z.enum([
-    'Direct Enterprise',
-    'Self-Serve Web',
-    'Partner Channel',
-    'Marketplace',
-  ]),
-  notes: z.string().optional(),
-});
+export const orderSchema = z
+  .object({
+    id: z.string().min(1),
+    orderNumber: z.string().min(1),
+    customerId: z.string().min(1, 'Customer is required'),
+    customerName: z.string().min(1),
+    customerEmail: z.string().email(),
+    customerCompany: z.string().min(1),
+    orderDate: z.string().min(1),
+    lineItems: z.array(orderLineItemSchema).min(1, 'At least one line item is required'),
+    subtotal: z.number().nonnegative(),
+    discountAmount: z.number().nonnegative(),
+    taxRate: z.number().min(0).max(0.5),
+    taxAmount: z.number().nonnegative(),
+    totalAmount: z.number().nonnegative(),
+    refundedAmount: z.number().nonnegative(),
+    paymentStatus: z.enum(['Paid', 'Pending', 'Refunded', 'Failed']),
+    fulfillmentStatus: z.enum(['Fulfilled', 'Processing', 'Scheduled', 'Canceled']),
+    salesChannel: z.enum([
+      'Direct Enterprise',
+      'Self-Serve Web',
+      'Partner Channel',
+      'Marketplace',
+    ]),
+    notes: z.string().optional(),
+  })
+  .refine((o) => o.refundedAmount <= Math.round((o.totalAmount + 0.01) * 100) / 100, {
+    message: 'Refunded amount cannot exceed order total',
+    path: ['refundedAmount'],
+  });
 
 export const createOrderFormSchema = z.object({
   customerId: z.string().min(1, 'Please select a customer'),
@@ -152,6 +157,54 @@ export const workspaceSettingsSchema = z.object({
   }),
 });
 
+export const savedReportSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  type: z.enum(['Sales Summary', 'Revenue Ledger', 'Customer Cohort', 'Product Velocity']),
+  dateRangePreset: z.enum(['7d', '30d', '90d', '6m', '12m', 'all', 'custom']),
+  customStartDate: z.string().optional(),
+  customEndDate: z.string().optional(),
+  channelFilter: z.enum([
+    'All',
+    'Direct Enterprise',
+    'Self-Serve Web',
+    'Partner Channel',
+    'Marketplace',
+  ]),
+  categoryFilter: z.enum([
+    'All',
+    'Enterprise Software',
+    'Cloud Infrastructure',
+    'Data Intelligence',
+    'Security & Compliance',
+    'API & Integrations',
+    'Advisory Retainer',
+  ]),
+  paymentStatusFilter: z.enum(['All', 'Paid', 'Pending', 'Refunded', 'Failed']),
+  createdAt: z.string(),
+  lastGeneratedAt: z.string(),
+  createdBy: z.string().min(1),
+});
+
+export const reportHistorySchema = z.object({
+  id: z.string().min(1),
+  reportName: z.string().min(1),
+  type: z.enum(['Sales Summary', 'Revenue Ledger', 'Customer Cohort', 'Product Velocity']),
+  generatedAt: z.string(),
+  generatedBy: z.string().min(1),
+  rowCount: z.number().int().nonnegative(),
+  totalRevenueReported: z.number().nonnegative(),
+  format: z.enum(['CSV', 'JSON', 'Print']),
+});
+
+export const dailySessionSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  sessions: z.number().int().nonnegative(),
+  uniqueVisitors: z.number().int().nonnegative(),
+  demoRequests: z.number().int().nonnegative(),
+  cartInitiated: z.number().int().nonnegative(),
+});
+
 export const backupStorageSchema = z.object({
   schemaVersion: z.number().int().positive(),
   seededAt: z.string(),
@@ -187,8 +240,8 @@ export const backupStorageSchema = z.object({
       metadata: z.record(z.string(), z.union([z.string(), z.number()])).optional(),
     })
   ),
-  savedReports: z.array(z.any()).optional().default([]),
-  reportHistory: z.array(z.any()).optional().default([]),
-  dailySessions: z.array(z.any()).optional().default([]),
+  savedReports: z.array(savedReportSchema).optional().default([]),
+  reportHistory: z.array(reportHistorySchema).optional().default([]),
+  dailySessions: z.array(dailySessionSchema).optional().default([]),
   settings: workspaceSettingsSchema,
 });

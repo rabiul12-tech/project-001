@@ -13,13 +13,25 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
 import { triggerBrowserDownload } from '@/lib/export/exporter';
+import { workspaceSettingsSchema } from '@/lib/validation/schemas';
+import { canPerformAction, getPermissionDeniedMessage } from '@/lib/permissions';
 import { PageHeader } from '@/components/ui/primitives';
 import { ConfirmDialog } from '@/components/ui/overlays';
 import {
   CurrencyCode,
   DateFormatOption,
   NumberFormatOption,
+  WorkspaceSettings,
 } from '@/types';
+
+interface SettingsPreferencesFormProps {
+  settings: WorkspaceSettings;
+  canManageSettings: boolean;
+  onSavePreferences: (next: WorkspaceSettings) => boolean;
+  onSetTheme: (theme: 'light' | 'dark') => void;
+  onSetSidebarCollapsed: (collapsed: boolean) => void;
+  onDenied: () => void;
+}
 
 export default function SettingsPage() {
   const settings = useAppStore((s) => s.settings);
@@ -31,6 +43,217 @@ export default function SettingsPage() {
   const resetDemoData = useAppStore((s) => s.resetDemoData);
   const addToast = useAppStore((s) => s.addToast);
 
+  const canManageSettings = canPerformAction(settings.activeRolePreview, 'manage_settings');
+  const canManageBackups = canPerformAction(settings.activeRolePreview, 'manage_backups_and_reset');
+
+  const [importError, setImportError] = useState<string | null>(null);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const formSyncKey = [
+    settings.personalName,
+    settings.personalEmail,
+    settings.personalTitle,
+    settings.workspaceName,
+    settings.companyDomain,
+    settings.companyLogoText,
+    settings.currency,
+    settings.language,
+    settings.dateFormat,
+    settings.numberFormat,
+    settings.notifications.highValueOrders,
+    settings.notifications.refundAlerts,
+    settings.notifications.lowInventoryWarnings,
+    settings.notifications.weeklyDigest,
+  ].join('|');
+
+  const handleSavePreferences = (next: WorkspaceSettings) => {
+    const parsed = workspaceSettingsSchema.safeParse(next);
+    if (!parsed.success) {
+      addToast('Validation failed', parsed.error.issues[0]?.message || 'Check your input fields.', 'error');
+      return false;
+    }
+    updateSettings(parsed.data);
+    return true;
+  };
+
+  const handleExportBackup = () => {
+    if (!canManageBackups) {
+      addToast(
+        'Permission restricted',
+        getPermissionDeniedMessage(settings.activeRolePreview, 'manage_backups_and_reset'),
+        'warning'
+      );
+      return;
+    }
+    const snapshot = getExportSnapshot();
+    triggerBrowserDownload(
+      JSON.stringify(snapshot, null, 2),
+      `aurelix-workspace-backup-${new Date().toISOString().slice(0, 10)}.json`,
+      'application/json'
+    );
+    addToast('JSON backup exported', 'Full workspace state saved to your device.', 'success');
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImportError(null);
+    if (!canManageBackups) {
+      setImportError(getPermissionDeniedMessage(settings.activeRolePreview, 'manage_backups_and_reset'));
+      e.target.value = '';
+      return;
+    }
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      setImportError('Backup file exceeds the 15 MB maximum limit.');
+      e.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = String(event.target?.result || '');
+      const res = importBackupJson(content);
+      if (!res.ok) {
+        setImportError(res.error || 'Backup file validation failed.');
+      }
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    };
+    reader.onerror = () => {
+      setImportError('Could not read the selected JSON file.');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Workspace & System Settings"
+        subtitle="Configure executive profile, display currency, regional number formatting, theme preferences, and LocalStorage backups."
+        meta={`Schema v1 · Domain: ${settings.companyDomain}`}
+      />
+
+      <SettingsPreferencesForm
+        key={formSyncKey}
+        settings={settings}
+        canManageSettings={canManageSettings}
+        onSavePreferences={handleSavePreferences}
+        onSetTheme={setTheme}
+        onSetSidebarCollapsed={setSidebarCollapsed}
+        onDenied={() =>
+          addToast(
+            'Permission restricted',
+            getPermissionDeniedMessage(settings.activeRolePreview, 'manage_settings'),
+            'warning'
+          )
+        }
+      />
+
+      {/* Data Management: Export Backup, Import Backup, Reset Demo Data */}
+      <div className="p-6 rounded-xl bg-surface-raised border border-line space-y-4">
+        <div className="flex items-center gap-2">
+          <Database className="w-4 h-4 text-accent" />
+          <h2 className="text-heading text-ink">
+            LocalStorage Data Management, JSON Backup & Reset
+          </h2>
+        </div>
+        <p className="text-sm text-ink-secondary max-w-3xl leading-relaxed">
+          Export your entire workspace state (customers, products, orders, reports, activity logs, and settings) as a portable JSON file, restore from a validated backup, or reset to the clean deterministic seed dataset.
+        </p>
+
+        {importError && (
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-danger">
+            {importError}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <button
+            type="button"
+            disabled={!canManageBackups}
+            title={!canManageBackups ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_backups_and_reset') : undefined}
+            onClick={handleExportBackup}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-slate-900 dark:bg-surface-hover text-white hover:bg-blue-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Export Full Backup (JSON)</span>
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          <button
+            type="button"
+            disabled={!canManageBackups}
+            title={!canManageBackups ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_backups_and_reset') : undefined}
+            onClick={() => {
+              if (!canManageBackups) {
+                addToast(
+                  'Permission restricted',
+                  getPermissionDeniedMessage(settings.activeRolePreview, 'manage_backups_and_reset'),
+                  'warning'
+                );
+                return;
+              }
+              fileInputRef.current?.click();
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-surface-sunken border border-line text-ink-secondary hover:bg-surface-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>Import Backup (JSON)</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={!canManageBackups}
+            title={!canManageBackups ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_backups_and_reset') : undefined}
+            onClick={() => {
+              if (!canManageBackups) {
+                addToast(
+                  'Permission restricted',
+                  getPermissionDeniedMessage(settings.activeRolePreview, 'manage_backups_and_reset'),
+                  'warning'
+                );
+                return;
+              }
+              setConfirmResetOpen(true);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-red-600/10 text-danger hover:bg-red-600/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset Demo Dataset</span>
+          </button>
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={confirmResetOpen}
+        onClose={() => setConfirmResetOpen(false)}
+        onConfirm={resetDemoData}
+        title="Reset Workspace to Default Demo Data?"
+        description="This will overwrite any custom customers, orders, products, or settings stored in your browser's LocalStorage and restore the original deterministic seed dataset (250 customers, 80 products, 1,200 orders)."
+        confirmLabel="Restore Default Seed"
+      />
+    </div>
+  );
+}
+
+function SettingsPreferencesForm({
+  settings,
+  canManageSettings,
+  onSavePreferences,
+  onSetTheme,
+  onSetSidebarCollapsed,
+  onDenied,
+}: SettingsPreferencesFormProps) {
   const [personalName, setPersonalName] = useState(settings.personalName);
   const [personalEmail, setPersonalEmail] = useState(settings.personalEmail);
   const [personalTitle, setPersonalTitle] = useState(settings.personalTitle);
@@ -49,20 +272,22 @@ export default function SettingsPage() {
     settings.notifications.lowInventoryWarnings
   );
   const [weeklyDigest, setWeeklyDigest] = useState(settings.notifications.weeklyDigest);
-
-  const [importError, setImportError] = useState<string | null>(null);
-  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    updateSettings({
-      personalName,
-      personalEmail,
-      personalTitle,
-      workspaceName,
-      companyDomain,
-      companyLogoText: companyLogoText.slice(0, 4).toUpperCase() || 'AX',
+    if (!canManageSettings) {
+      onDenied();
+      return;
+    }
+    const candidate: WorkspaceSettings = {
+      ...settings,
+      personalName: personalName.trim(),
+      personalEmail: personalEmail.trim(),
+      personalTitle: personalTitle.trim(),
+      workspaceName: workspaceName.trim(),
+      companyDomain: companyDomain.trim(),
+      companyLogoText: companyLogoText.trim().slice(0, 4).toUpperCase() || 'AX',
       currency,
       language,
       dateFormat,
@@ -73,43 +298,23 @@ export default function SettingsPage() {
         lowInventoryWarnings,
         weeklyDigest,
       },
-    });
-  };
-
-  const handleExportBackup = () => {
-    const snapshot = getExportSnapshot();
-    triggerBrowserDownload(
-      JSON.stringify(snapshot, null, 2),
-      `aurelix-workspace-backup-${new Date().toISOString().slice(0, 10)}.json`,
-      'application/json'
-    );
-    addToast('JSON backup exported', 'Full workspace state saved to your device.', 'success');
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setImportError(null);
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = String(event.target?.result || '');
-      const res = importBackupJson(content);
-      if (!res.ok) {
-        setImportError(res.error || 'Backup file validation failed.');
-      }
     };
-    reader.readAsText(file);
+    const parsed = workspaceSettingsSchema.safeParse(candidate);
+    if (!parsed.success) {
+      setValidationError(parsed.error.issues[0]?.message || 'Check your input fields.');
+      return;
+    }
+    setValidationError(null);
+    onSavePreferences(parsed.data);
   };
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Workspace & System Settings"
-        subtitle="Configure executive profile, display currency, regional number formatting, theme preferences, and LocalStorage backups."
-        meta={`Schema v1 · Domain: ${settings.companyDomain}`}
-      />
-
       <form onSubmit={handleSaveSettings} className="space-y-6 text-xs">
+        {validationError && (
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-danger">
+            {validationError}
+          </div>
+        )}
         {/* Personal Profile & Workspace Identity */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="p-6 rounded-xl bg-surface-raised border border-line space-y-4">
@@ -117,7 +322,7 @@ export default function SettingsPage() {
               <h2 className="text-heading text-ink">
                 Personal Executive Profile
               </h2>
-              <p className="text-ink-muted">
+              <p className="text-xs text-ink-muted mt-1">
                 Used for report attributions and activity audit logs
               </p>
             </div>
@@ -166,7 +371,7 @@ export default function SettingsPage() {
               <h2 className="text-heading text-ink">
                 Workspace & Brand Identity
               </h2>
-              <p className="text-ink-muted">
+              <p className="text-xs text-ink-muted mt-1">
                 Configure organization name, domain, and sidebar monogram
               </p>
             </div>
@@ -317,7 +522,7 @@ export default function SettingsPage() {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => setTheme('light')}
+                onClick={() => onSetTheme('light')}
                 className={`p-4 rounded-xl border flex items-center gap-3 transition-colors ${
                   settings.theme === 'light'
                     ? 'border-accent bg-surface-raised ring-1 ring-accent text-accent font-semibold'
@@ -330,7 +535,7 @@ export default function SettingsPage() {
 
               <button
                 type="button"
-                onClick={() => setTheme('dark')}
+                onClick={() => onSetTheme('dark')}
                 className={`p-4 rounded-xl border flex items-center gap-3 transition-colors ${
                   settings.theme === 'dark'
                     ? 'border-blue-400 bg-blue-400/10 text-blue-400 font-semibold'
@@ -354,7 +559,7 @@ export default function SettingsPage() {
               <input
                 type="checkbox"
                 checked={settings.sidebarCollapsed}
-                onChange={(e) => setSidebarCollapsed(e.target.checked)}
+                onChange={(e) => onSetSidebarCollapsed(e.target.checked)}
                 className="w-4 h-4 rounded"
               />
             </div>
@@ -417,77 +622,14 @@ export default function SettingsPage() {
         <div className="flex justify-end">
           <button
             type="submit"
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent-strong hover:bg-accent-strong-hover text-white font-semibold shadow-xs transition-colors"
+            disabled={!canManageSettings}
+            title={!canManageSettings ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_settings') : undefined}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent-strong hover:bg-accent-strong-hover text-white font-semibold shadow-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
             <span>Save All Workspace Preferences</span>
           </button>
         </div>
       </form>
-
-      {/* Data Management: Export Backup, Import Backup, Reset Demo Data */}
-      <div className="p-6 rounded-xl bg-surface-raised border border-line space-y-4">
-        <div className="flex items-center gap-2">
-          <Database className="w-4 h-4 text-accent" />
-          <h2 className="text-heading text-ink">
-            LocalStorage Data Management, JSON Backup & Reset
-          </h2>
-        </div>
-        <p className="text-xs text-ink-muted max-w-3xl leading-relaxed">
-          Export your entire workspace state (customers, products, orders, reports, activity logs, and settings) as a portable JSON file, restore from a validated backup, or reset to the clean deterministic seed dataset.
-        </p>
-
-        {importError && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-danger">
-            {importError}
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-center gap-3 pt-1">
-          <button
-            type="button"
-            onClick={handleExportBackup}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-slate-900 dark:bg-surface-hover text-white hover:bg-blue-600 transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export Full Backup (JSON)</span>
-          </button>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json,application/json"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-surface-sunken border border-line text-ink-secondary hover:bg-surface-hover transition-colors"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Import Backup (JSON)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setConfirmResetOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium bg-red-600/10 text-danger hover:bg-red-600/20 transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset Demo Dataset</span>
-          </button>
-        </div>
-      </div>
-
-      <ConfirmDialog
-        open={confirmResetOpen}
-        onClose={() => setConfirmResetOpen(false)}
-        onConfirm={resetDemoData}
-        title="Reset Workspace to Default Demo Data?"
-        description="This will overwrite any custom customers, orders, products, or settings stored in your browser's LocalStorage and restore the original deterministic seed dataset (250 customers, 80 products, 1,200 orders)."
-        confirmLabel="Restore Default Seed"
-      />
-    </div>
   );
 }

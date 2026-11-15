@@ -22,11 +22,11 @@ export default function HelpDocumentationPage() {
         meta="Documentation v1.0"
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 text-xs leading-relaxed">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 text-sm leading-relaxed">
         {/* Main Documentation Content */}
         <div className="lg:col-span-8 space-y-6">
           <section className="p-6 rounded-xl bg-surface-raised border border-line space-y-3">
-            <div className="flex items-center gap-2 text-accent font-semibold">
+            <div className="flex items-center gap-2 text-micro text-accent">
               <BookOpen className="w-4 h-4" />
               <span>01. Product Introduction & Navigation Guide</span>
             </div>
@@ -38,16 +38,16 @@ export default function HelpDocumentationPage() {
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
               <div className="p-4 rounded-lg bg-surface-sunken border border-line">
-                <div className="font-bold text-ink">Core Analytics & Ledger</div>
-                <p className="text-ink-muted mt-1">
+                <h3 className="text-subheading text-ink">Core Analytics & Ledger</h3>
+                <p className="text-sm text-ink-secondary mt-1.5 leading-relaxed">
                   Use <Link href="/dashboard" className="text-accent hover:underline">Overview</Link>,{' '}
                   <Link href="/dashboard/analytics" className="text-accent hover:underline">Analytics</Link>, and{' '}
                   <Link href="/dashboard/revenue" className="text-accent hover:underline">Revenue</Link> to inspect net revenue trends, channel share, and line-item reconciliations.
                 </p>
               </div>
               <div className="p-4 rounded-lg bg-surface-sunken border border-line">
-                <div className="font-bold text-ink">Operational Workflows</div>
-                <p className="text-ink-muted mt-1">
+                <h3 className="text-subheading text-ink">Operational Workflows</h3>
+                <p className="text-sm text-ink-secondary mt-1.5 leading-relaxed">
                   Use <Link href="/dashboard/customers" className="text-accent hover:underline">Customers</Link>,{' '}
                   <Link href="/dashboard/orders" className="text-accent hover:underline">Orders</Link>, and{' '}
                   <Link href="/dashboard/products" className="text-accent hover:underline">Products</Link> to create, edit, refund, archive, and export records.
@@ -57,7 +57,7 @@ export default function HelpDocumentationPage() {
           </section>
 
           <section className="p-6 rounded-xl bg-surface-raised border border-line space-y-3">
-            <div className="flex items-center gap-2 text-success font-semibold">
+            <div className="flex items-center gap-2 text-micro text-success">
               <Calculator className="w-4 h-4" />
               <span>02. Centralized Financial Calculation Rules</span>
             </div>
@@ -81,7 +81,7 @@ export default function HelpDocumentationPage() {
           </section>
 
           <section className="p-6 rounded-xl bg-surface-raised border border-line space-y-3">
-            <div className="flex items-center gap-2 text-warning font-semibold">
+            <div className="flex items-center gap-2 text-micro text-warning">
               <Database className="w-4 h-4" />
               <span>03. LocalStorage Persistence, Backups & Troubleshooting</span>
             </div>
@@ -105,26 +105,26 @@ export default function HelpDocumentationPage() {
         {/* Right Column: Shortcuts, Exports & Security Boundaries */}
         <div className="lg:col-span-4 space-y-6">
           <section className="p-6 rounded-xl bg-surface-raised border border-line space-y-4">
-            <div className="flex items-center gap-2 text-accent font-semibold">
+            <h2 className="flex items-center gap-2 text-subheading text-accent">
               <Keyboard className="w-4 h-4" />
               <span>Keyboard Shortcuts</span>
-            </div>
-            <div className="space-y-3">
+            </h2>
+            <div className="space-y-3 text-sm">
               <div className="flex items-center justify-between py-2 border-b border-line-subtle">
                 <span className="text-ink-secondary">Open Command Palette</span>
-                <kbd className="px-2 py-1 rounded bg-surface-sunken border border-line tabular-nums">
+                <kbd className="px-2 py-1 rounded bg-surface-sunken border border-line text-xs font-medium tabular-nums">
                   Ctrl / ⌘ + K
                 </kbd>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-line-subtle">
                 <span className="text-ink-secondary">Close Active Modal / Drawer</span>
-                <kbd className="px-2 py-1 rounded bg-surface-sunken border border-line tabular-nums">
+                <kbd className="px-2 py-1 rounded bg-surface-sunken border border-line text-xs font-medium tabular-nums">
                   ESC
                 </kbd>
               </div>
               <div className="flex items-center justify-between py-2">
                 <span className="text-ink-secondary">Print Current Report</span>
-                <kbd className="px-2 py-1 rounded bg-surface-sunken border border-line tabular-nums">
+                <kbd className="px-2 py-1 rounded bg-surface-sunken border border-line text-xs font-medium tabular-nums">
                   Ctrl / ⌘ + P
                 </kbd>
               </div>
@@ -132,30 +132,30 @@ export default function HelpDocumentationPage() {
           </section>
 
           <section className="p-6 rounded-xl bg-surface-raised border border-line space-y-3">
-            <div className="flex items-center gap-2 text-success font-semibold">
+            <h2 className="flex items-center gap-2 text-subheading text-success">
               <FileSpreadsheet className="w-4 h-4" />
               <span>How CSV & JSON Exports Work</span>
-            </div>
+            </h2>
             <p className="text-ink-secondary">
               Every Export button generates a real RFC-4180 compliant CSV or JSON Blob directly from your currently filtered state in memory and triggers an immediate browser download.
             </p>
           </section>
 
           <section className="p-6 rounded-xl bg-surface-raised border border-line space-y-3">
-            <div className="flex items-center gap-2 text-warning font-semibold">
+            <h2 className="flex items-center gap-2 text-subheading text-warning">
               <ShieldAlert className="w-4 h-4" />
               <span>Data Privacy & Portfolio Limitations</span>
-            </div>
+            </h2>
             <p className="text-ink-secondary">
               Aurelix Analytics is a client-side frontend architecture demonstration. All data stays in your local browser storage and is never transmitted to an external server. Do not store real passwords, API keys, or sensitive personal financial secrets in LocalStorage.
             </p>
           </section>
 
           <section className="p-6 rounded-xl bg-surface-raised border border-line space-y-3">
-            <div className="flex items-center gap-2 text-ink-secondary font-semibold">
-              <HelpCircle className="w-4 h-4" />
+            <h2 className="flex items-center gap-2 text-subheading text-ink">
+              <HelpCircle className="w-4 h-4 text-ink-secondary" />
               <span>Quick Troubleshooting</span>
-            </div>
+            </h2>
             <p className="text-ink-secondary">
               If a chart or table appears empty, verify your global Date Range quick filter in the top navigation bar or click <strong>Reset Seed Data</strong> in Settings to restore the 1,200 seeded orders.
             </p>

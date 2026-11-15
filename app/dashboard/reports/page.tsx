@@ -16,7 +16,10 @@ import {
   enrichCustomersWithMetrics,
   filterOrdersByWindow,
   resolveDateWindow,
+  toCents,
+  fromCents,
 } from '@/lib/calculations/analytics';
+import { canPerformAction, getPermissionDeniedMessage } from '@/lib/permissions';
 import {
   convertRowsToCsv,
   formatCurrency,
@@ -45,6 +48,7 @@ export default function ReportingCenterPage() {
   const addToast = useAppStore((s) => s.addToast);
   const defaultStart = useAppStore((s) => s.customStartDate);
   const defaultEnd = useAppStore((s) => s.customEndDate);
+  const canManageReports = canPerformAction(settings.activeRolePreview, 'manage_reports');
 
   const [reportName, setReportName] = useState('Q4 Executive Revenue & Channel Audit');
   const [reportType, setReportType] = useState<ReportType>('Revenue Ledger');
@@ -58,9 +62,21 @@ export default function ReportingCenterPage() {
   const [categoryFilter, setCategoryFilter] = useState<ProductCategory | 'All'>('All');
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatus | 'All'>('All');
 
+  const earliestOrderIso = useMemo(() => {
+    if (orders.length === 0) return undefined;
+    return orders.reduce((min, o) => (o.orderDate < min ? o.orderDate : min), orders[0].orderDate);
+  }, [orders]);
+
   const windowRange = useMemo(
-    () => resolveDateWindow(preset, customStart, customEnd, new Date(now).toISOString()),
-    [preset, customStart, customEnd, now]
+    () =>
+      resolveDateWindow(
+        preset,
+        customStart,
+        customEnd,
+        new Date(now).toISOString(),
+        earliestOrderIso
+      ),
+    [preset, customStart, customEnd, now, earliestOrderIso]
   );
 
   const filteredOrders = useMemo(() => {
@@ -92,9 +108,9 @@ export default function ReportingCenterPage() {
         'Net Realized',
       ];
       const rows = filteredOrders.map((o) => {
-        const net =
+        const netCents =
           o.paymentStatus === 'Paid' || o.paymentStatus === 'Refunded'
-            ? Math.max(0, Math.round((o.totalAmount - o.refundedAmount) * 100) / 100)
+            ? Math.max(0, toCents(o.totalAmount) - toCents(o.refundedAmount))
             : 0;
         return [
           o.orderNumber,
@@ -107,16 +123,21 @@ export default function ReportingCenterPage() {
           o.taxAmount,
           o.totalAmount,
           o.refundedAmount,
-          net,
+          fromCents(netCents),
         ];
       });
-      const totalRevenue = filteredOrders.reduce((acc, o) => {
+      const totalCents = filteredOrders.reduce((acc, o) => {
         if (o.paymentStatus === 'Paid' || o.paymentStatus === 'Refunded') {
-          return acc + Math.max(0, o.totalAmount - o.refundedAmount);
+          return acc + Math.max(0, toCents(o.totalAmount) - toCents(o.refundedAmount));
         }
         return acc;
       }, 0);
-      return { headers, rows, totalRevenue: Math.round(totalRevenue * 100) / 100 };
+      return {
+        headers,
+        rows,
+        totalRevenue: fromCents(totalCents),
+        currencyColumns: new Set([5, 6, 7, 8, 9, 10]),
+      };
     }
 
     if (reportType === 'Customer Cohort') {
@@ -145,8 +166,13 @@ export default function ReportingCenterPage() {
         c.lifetimeSpend,
         c.averageOrderValue,
       ]);
-      const totalRevenue = enriched.reduce((s, c) => s + c.lifetimeSpend, 0);
-      return { headers, rows, totalRevenue: Math.round(totalRevenue * 100) / 100 };
+      const totalCents = enriched.reduce((s, c) => s + toCents(c.lifetimeSpend), 0);
+      return {
+        headers,
+        rows,
+        totalRevenue: fromCents(totalCents),
+        currencyColumns: new Set([7, 8]),
+      };
     }
 
     // Product Velocity
@@ -173,11 +199,24 @@ export default function ReportingCenterPage() {
       p.grossRevenue,
       p.stockLevel,
     ]);
-    const totalRevenue = prodPerf.reduce((s, p) => s + p.grossRevenue, 0);
-    return { headers, rows, totalRevenue: Math.round(totalRevenue * 100) / 100 };
+    const totalCents = prodPerf.reduce((s, p) => s + toCents(p.grossRevenue), 0);
+    return {
+      headers,
+      rows,
+      totalRevenue: fromCents(totalCents),
+      currencyColumns: new Set([3, 6]),
+    };
   }, [reportType, filteredOrders, customers, products, categoryFilter]);
 
   const handleSaveTemplate = () => {
+    if (!canManageReports) {
+      addToast(
+        'Permission restricted',
+        getPermissionDeniedMessage(settings.activeRolePreview, 'manage_reports'),
+        'warning'
+      );
+      return;
+    }
     if (!reportName.trim()) {
       addToast('Report name required', 'Provide a descriptive template name.', 'warning');
       return;
@@ -264,15 +303,17 @@ export default function ReportingCenterPage() {
                 {savedReports.length > 1 && (
                   <button
                     type="button"
+                    disabled={!canManageReports}
+                    title={!canManageReports ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_reports') : undefined}
                     onClick={() => deleteReportConfig(tpl.id)}
                     aria-label={`Delete template ${tpl.name}`}
-                    className="text-ink-muted hover:text-red-500 p-1"
+                    className="text-ink-muted hover:text-red-500 p-1 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
-              <h3 className="text-xs font-bold text-ink">{tpl.name}</h3>
+              <h3 className="text-subheading text-ink">{tpl.name}</h3>
               <p className="text-xs text-ink-muted">
                 Window: {tpl.dateRangePreset.toUpperCase()} · Channel: {tpl.channelFilter}
               </p>
@@ -283,6 +324,8 @@ export default function ReportingCenterPage() {
                 setReportName(tpl.name);
                 setReportType(tpl.type);
                 setPreset(tpl.dateRangePreset);
+                setCustomStart(tpl.customStartDate ?? null);
+                setCustomEnd(tpl.customEndDate ?? null);
                 setChannelFilter(tpl.channelFilter);
                 setCategoryFilter(tpl.categoryFilter);
                 setPaymentFilter(tpl.paymentStatusFilter);
@@ -302,14 +345,16 @@ export default function ReportingCenterPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line-subtle pb-3">
           <div className="flex items-center gap-2">
             <FileSpreadsheet className="w-4 h-4 text-accent" />
-            <h2 className="text-sm font-bold text-ink">
+            <h2 className="text-heading text-ink">
               Report Builder & Filter Parameters
             </h2>
           </div>
           <button
             type="button"
+            disabled={!canManageReports}
+            title={!canManageReports ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_reports') : undefined}
             onClick={handleSaveTemplate}
-            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-surface-hover text-ink-secondary hover:bg-slate-200 transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-surface-hover text-ink-secondary hover:bg-surface-sunken border border-line transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <BookmarkPlus className="w-3.5 h-3.5" />
             <span>Save Configuration as Template</span>
@@ -317,7 +362,7 @@ export default function ReportingCenterPage() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 text-xs">
-          <div className="lg:col-span-2">
+          <div className="sm:col-span-2 lg:col-span-2">
             <label className="block text-xs font-medium text-ink-muted mb-1">
               Report Title
             </label>
@@ -329,7 +374,7 @@ export default function ReportingCenterPage() {
             />
           </div>
 
-          <div>
+          <div className="lg:col-span-2">
             <label className="block text-xs font-medium text-ink-muted mb-1">
               Report Model
             </label>
@@ -345,7 +390,7 @@ export default function ReportingCenterPage() {
             </select>
           </div>
 
-          <div>
+          <div className="lg:col-span-2">
             <label className="block text-xs font-medium text-ink-muted mb-1">
               Date Range
             </label>
@@ -359,11 +404,12 @@ export default function ReportingCenterPage() {
               <option value="90d">Last 90 Days</option>
               <option value="6m">Last 6 Months</option>
               <option value="12m">Last 12 Months</option>
+              <option value="all">All Time</option>
               <option value="custom">Custom Dates</option>
             </select>
           </div>
 
-          <div>
+          <div className="lg:col-span-2">
             <label className="block text-xs font-medium text-ink-muted mb-1">
               Sales Channel
             </label>
@@ -380,7 +426,26 @@ export default function ReportingCenterPage() {
             </select>
           </div>
 
-          <div>
+          <div className="lg:col-span-2">
+            <label className="block text-xs font-medium text-ink-muted mb-1">
+              Product Category
+            </label>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value as ProductCategory | 'All')}
+              className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
+            >
+              <option value="All">All Categories</option>
+              <option value="Enterprise Software">Enterprise Software</option>
+              <option value="Cloud Infrastructure">Cloud Infrastructure</option>
+              <option value="Data Intelligence">Data Intelligence</option>
+              <option value="Security & Compliance">Security & Compliance</option>
+              <option value="API & Integrations">API & Integrations</option>
+              <option value="Advisory Retainer">Advisory Retainer</option>
+            </select>
+          </div>
+
+          <div className="lg:col-span-2">
             <label className="block text-xs font-medium text-ink-muted mb-1">
               Payment Status
             </label>
@@ -425,13 +490,13 @@ export default function ReportingCenterPage() {
       <div className="rounded-xl bg-surface-raised border border-line overflow-hidden">
         <div className="p-6 border-b border-line flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="text-xs tabular-nums text-accent">
+            <div className="text-micro text-accent">
               LIVE REPORT PREVIEW · {reportType.toUpperCase()}
             </div>
             <h2 className="text-heading text-ink mt-1">
               {reportName}
             </h2>
-            <p className="text-xs text-ink-muted">
+            <p className="text-xs text-ink-muted mt-0.5">
               Showing top 25 of {previewData.rows.length} matching records · Prepared by{' '}
               {settings.personalName}
             </p>
@@ -447,12 +512,16 @@ export default function ReportingCenterPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm table-sticky-first">
             <thead>
-              <tr className="border-b border-line bg-surface-sunken/60 text-xs font-semibold text-ink-muted">
+              <tr className="border-b border-line bg-surface-sunken/60 text-caption font-semibold text-ink-muted">
                 {previewData.headers.map((h, hIdx) => (
                   <th
                     key={h}
+                    scope="col"
                     className={`py-3 px-4 whitespace-nowrap ${
-                      typeof previewData.rows[0]?.[hIdx] === 'number' ? 'text-right' : ''
+                      typeof previewData.rows[0]?.[hIdx] === 'number' ||
+                      previewData.currencyColumns.has(hIdx)
+                        ? 'text-right'
+                        : ''
                     }`}
                   >
                     {h}
@@ -461,22 +530,35 @@ export default function ReportingCenterPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-line-subtle">
-              {previewData.rows.slice(0, 25).map((row, rIdx) => (
-                <tr key={rIdx} className="hover:bg-surface-hover/50">
-                  {row.map((cell, cIdx) => (
-                    <td
-                      key={cIdx}
-                      className={`py-3 px-4 whitespace-nowrap ${
-                        typeof cell === 'number' ? 'tabular-nums text-right' : ''
-                      }`}
-                    >
-                      {typeof cell === 'number' && cIdx >= row.length - 3
-                        ? formatCurrency(cell, settings.currency, settings.numberFormat)
-                        : String(cell)}
-                    </td>
-                  ))}
+              {previewData.rows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={previewData.headers.length}
+                    className="py-8 px-4 text-center text-xs text-ink-muted"
+                  >
+                    No matching records for the selected report filters.
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                previewData.rows.slice(0, 25).map((row, rIdx) => (
+                  <tr key={rIdx} className="hover:bg-surface-hover/50">
+                    {row.map((cell, cIdx) => (
+                      <td
+                        key={cIdx}
+                        className={`py-3 px-4 whitespace-nowrap ${
+                          typeof cell === 'number' ? 'tabular-nums text-right' : ''
+                        }`}
+                      >
+                        {typeof cell === 'number' && previewData.currencyColumns.has(cIdx)
+                          ? formatCurrency(cell, settings.currency, settings.numberFormat)
+                          : typeof cell === 'number'
+                            ? cell.toLocaleString()
+                            : String(cell)}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -484,19 +566,19 @@ export default function ReportingCenterPage() {
 
       {/* Locally Generated Report History */}
       <div className="p-6 rounded-xl bg-surface-raised border border-line space-y-3 no-print">
-        <h2 className="text-sm font-bold text-ink">
+        <h2 className="text-heading text-ink">
           Generated Report History (Persisted Locally)
         </h2>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm table-sticky-first">
             <thead>
-              <tr className="border-b border-line text-xs text-ink-muted">
-                <th className="py-2 pr-4">Report Name</th>
-                <th className="py-2 px-4">Type</th>
-                <th className="py-2 px-4">Generated By</th>
-                <th className="py-2 px-4">Date</th>
-                <th className="py-2 px-4 text-right">Rows</th>
-                <th className="py-2 pl-4 text-right">Reconciled Revenue</th>
+              <tr className="border-b border-line text-caption font-medium text-ink-muted">
+                <th scope="col" className="py-2 pr-4">Report Name</th>
+                <th scope="col" className="py-2 px-4">Type</th>
+                <th scope="col" className="py-2 px-4">Generated By</th>
+                <th scope="col" className="py-2 px-4">Date</th>
+                <th scope="col" className="py-2 px-4 text-right">Rows</th>
+                <th scope="col" className="py-2 pl-4 text-right">Reconciled Revenue</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line-subtle">

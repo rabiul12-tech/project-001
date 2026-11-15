@@ -39,6 +39,7 @@ import {
   Pagination,
 } from '@/components/ui/overlays';
 import { Product, ProductCategory, ProductStatus } from '@/types';
+import { canPerformAction, getPermissionDeniedMessage } from '@/lib/permissions';
 
 function ProductsCatalogContent() {
   const searchParams = useSearchParams();
@@ -49,6 +50,7 @@ function ProductsCatalogContent() {
   const updateProduct = useAppStore((s) => s.updateProduct);
   const archiveProducts = useAppStore((s) => s.archiveProducts);
   const addToast = useAppStore((s) => s.addToast);
+  const canMutateProducts = canPerformAction(settings.activeRolePreview, 'mutate_products');
 
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
@@ -57,7 +59,7 @@ function ProductsCatalogContent() {
   const [sortField, setSortField] = useState<'grossRevenue' | 'unitPrice' | 'stockLevel' | 'name'>('grossRevenue');
   const [sortAsc, setSortAsc] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(12);
+  const [pageSize, setPageSize] = useState(10);
 
   const [drawerProduct, setDrawerProduct] = useState<Product | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -133,12 +135,21 @@ function ProductsCatalogContent() {
   }, [enrichedProducts, searchQuery, categoryFilter, statusFilter, sortField, sortAsc]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  const safePage = Math.min(page, totalPages);
   const paginatedProducts = useMemo(
-    () => filteredProducts.slice((page - 1) * pageSize, page * pageSize),
-    [filteredProducts, page, pageSize]
+    () => filteredProducts.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredProducts, safePage, pageSize]
   );
 
   const openCreateModal = () => {
+    if (!canMutateProducts) {
+      addToast(
+        'Permission restricted',
+        getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_products'),
+        'warning'
+      );
+      return;
+    }
     setEditingProduct(null);
     reset({
       sku: `ENT-${1000 + products.length * 7}`,
@@ -154,6 +165,14 @@ function ProductsCatalogContent() {
   };
 
   const openEditModal = (prod: Product) => {
+    if (!canMutateProducts) {
+      addToast(
+        'Permission restricted',
+        getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_products'),
+        'warning'
+      );
+      return;
+    }
     setEditingProduct(prod);
     reset({
       sku: prod.sku,
@@ -169,12 +188,21 @@ function ProductsCatalogContent() {
   };
 
   const onSubmitForm = (values: ProductFormValues) => {
+    if (!canMutateProducts) {
+      addToast(
+        'Permission restricted',
+        getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_products'),
+        'warning'
+      );
+      return;
+    }
     if (editingProduct) {
       updateProduct(editingProduct.id, values);
+      setModalOpen(false);
     } else {
-      addProduct(values);
+      const created = addProduct(values);
+      if (created) setModalOpen(false);
     }
-    setModalOpen(false);
   };
 
   const handleSort = (field: typeof sortField) => {
@@ -184,6 +212,7 @@ function ProductsCatalogContent() {
       setSortField(field);
       setSortAsc(false);
     }
+    setPage(1);
   };
 
   const handleExportCatalog = () => {
@@ -236,7 +265,9 @@ function ProductsCatalogContent() {
             <button
               type="button"
               onClick={openCreateModal}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
+              disabled={!canMutateProducts}
+              title={!canMutateProducts ? getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_products') : undefined}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Create Product</span>
@@ -359,6 +390,7 @@ function ProductsCatalogContent() {
             setSearchQuery('');
             setCategoryFilter('All');
             setStatusFilter('All');
+            setPage(1);
           }}
         />
       ) : viewMode === 'table' ? (
@@ -366,8 +398,8 @@ function ProductsCatalogContent() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm table-sticky-first">
               <thead>
-                <tr className="border-b border-line bg-surface-sunken/60 text-xs font-semibold text-ink-muted">
-                  <th className="py-3 px-4">
+                <tr className="border-b border-line bg-surface-sunken/60 text-caption font-semibold text-ink-muted">
+                  <th scope="col" className="py-3 px-4">
                     <button
                       type="button"
                       onClick={() => handleSort('name')}
@@ -377,9 +409,9 @@ function ProductsCatalogContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">
+                  <th scope="col" className="py-3 px-4">Category</th>
+                  <th scope="col" className="py-3 px-4">Status</th>
+                  <th scope="col" className="py-3 px-4 text-right">
                     <button
                       type="button"
                       onClick={() => handleSort('unitPrice')}
@@ -389,7 +421,7 @@ function ProductsCatalogContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th className="py-3 px-4 text-right">
+                  <th scope="col" className="py-3 px-4 text-right">
                     <button
                       type="button"
                       onClick={() => handleSort('stockLevel')}
@@ -399,7 +431,7 @@ function ProductsCatalogContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th className="py-3 px-4 text-right">
+                  <th scope="col" className="py-3 px-4 text-right">
                     <button
                       type="button"
                       onClick={() => handleSort('grossRevenue')}
@@ -409,7 +441,7 @@ function ProductsCatalogContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th scope="col" className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-subtle">
@@ -472,8 +504,10 @@ function ProductsCatalogContent() {
                         <button
                           type="button"
                           onClick={() => openEditModal(prod)}
+                          disabled={!canMutateProducts}
+                          title={!canMutateProducts ? getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_products') : undefined}
                           aria-label={`Edit ${prod.name}`}
-                          className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover"
+                          className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
@@ -481,8 +515,10 @@ function ProductsCatalogContent() {
                           <button
                             type="button"
                             onClick={() => archiveProducts([prod.id])}
+                            disabled={!canMutateProducts}
+                            title={!canMutateProducts ? getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_products') : undefined}
                             aria-label={`Archive ${prod.name}`}
-                            className="p-2 rounded-lg text-ink-muted hover:text-amber-600 hover:bg-amber-500/10"
+                            className="p-2 rounded-lg text-ink-muted hover:text-amber-600 hover:bg-amber-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             <Archive className="w-3.5 h-3.5" />
                           </button>
@@ -496,7 +532,7 @@ function ProductsCatalogContent() {
           </div>
 
           <Pagination
-            currentPage={page}
+            currentPage={safePage}
             totalPages={totalPages}
             totalItems={filteredProducts.length}
             pageSize={pageSize}
@@ -522,13 +558,13 @@ function ProductsCatalogContent() {
                     <StatusBadge status={prod.status} />
                   </div>
                   <div>
-                    <div className="text-xs tabular-nums text-ink-muted">
+                    <div className="text-caption tabular-nums text-ink-muted">
                       {prod.sku} · {prod.category}
                     </div>
-                    <h3 className="text-sm font-bold text-ink mt-1">
+                    <h3 className="text-subheading text-ink mt-1">
                       {prod.name}
                     </h3>
-                    <p className="text-xs text-ink-muted mt-1 line-clamp-2">
+                    <p className="text-xs text-ink-secondary mt-1 line-clamp-2 leading-relaxed">
                       {prod.description}
                     </p>
                   </div>
@@ -536,8 +572,8 @@ function ProductsCatalogContent() {
 
                 <div className="pt-3 border-t border-line-subtle flex items-center justify-between text-xs">
                   <div>
-                    <div className="text-xs text-ink-muted">Catalog Price</div>
-                    <div className="tabular-nums font-bold text-sm text-ink">
+                    <div className="text-caption text-ink-muted">Catalog Price</div>
+                    <div className="tabular-nums font-bold text-base text-ink">
                       {formatCurrency(prod.unitPrice, settings.currency, settings.numberFormat)}
                     </div>
                   </div>
@@ -554,11 +590,15 @@ function ProductsCatalogContent() {
 
           <div className="rounded-xl bg-surface-raised border border-line">
             <Pagination
-              currentPage={page}
+              currentPage={safePage}
               totalPages={totalPages}
               totalItems={filteredProducts.length}
               pageSize={pageSize}
               onPageChange={setPage}
+              onPageSizeChange={(s) => {
+                setPageSize(s);
+                setPage(1);
+              }}
             />
           </div>
         </div>
@@ -720,12 +760,14 @@ function ProductsCatalogContent() {
             <>
               <button
                 type="button"
+                disabled={!canMutateProducts}
+                title={!canMutateProducts ? getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_products') : undefined}
                 onClick={() => {
                   const p = drawerProduct;
                   setDrawerProduct(null);
                   openEditModal(p);
                 }}
-                className="px-4 py-2 rounded-lg text-xs font-medium border border-line"
+                className="px-4 py-2 rounded-lg text-xs font-medium border border-line disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Edit Product
               </button>
@@ -753,34 +795,34 @@ function ProductsCatalogContent() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="p-4 rounded-xl bg-surface-sunken border border-line">
-                <div className="text-ink-muted">Current Unit Price</div>
-                <div className="text-heading tabular-nums mt-1">
+                <div className="text-caption text-ink-muted">Current Unit Price</div>
+                <div className="text-base sm:text-heading font-semibold tabular-nums mt-1">
                   {formatCurrency(drawerProduct.unitPrice, settings.currency, settings.numberFormat)}
                 </div>
               </div>
               <div className="p-4 rounded-xl bg-surface-sunken border border-line">
-                <div className="text-ink-muted">Gross Margin</div>
-                <div className="text-heading tabular-nums text-success mt-1">
+                <div className="text-caption text-ink-muted">Gross Margin</div>
+                <div className="text-base sm:text-heading font-semibold tabular-nums text-success mt-1">
                   {drawerProduct.unitPrice > 0
                     ? `${Math.round(((drawerProduct.unitPrice - drawerProduct.costPrice) / drawerProduct.unitPrice) * 100)}%`
                     : '0%'}
                 </div>
               </div>
               <div className="p-4 rounded-xl bg-surface-sunken border border-line">
-                <div className="text-ink-muted">Available Stock</div>
-                <div className="text-heading tabular-nums mt-1">
+                <div className="text-caption text-ink-muted">Available Stock</div>
+                <div className="text-base sm:text-heading font-semibold tabular-nums mt-1">
                   {drawerProduct.stockLevel} units
                 </div>
               </div>
             </div>
 
             <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-2">
-              <div className="font-semibold text-ink">
+              <h3 className="text-subheading text-ink">
                 Specification & Historical Price Integrity
-              </div>
-              <p className="text-ink-muted leading-relaxed">
+              </h3>
+              <p className="text-sm text-ink-secondary leading-relaxed">
                 {drawerProduct.description}
               </p>
               <p className="text-xs text-ink-muted pt-2 border-t border-line-subtle">

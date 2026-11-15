@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -32,9 +32,11 @@ import {
 import { useAppStore } from '@/stores/useAppStore';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { UserAvatar } from '@/components/ui/primitives';
+import { ConfirmDialog } from '@/components/ui/overlays';
 import { CommandPalette } from '@/components/layout/CommandPalette';
 import { TeamRole } from '@/types';
 import { formatCurrency } from '@/lib/export/exporter';
+import { canPerformAction, getPermissionDeniedMessage } from '@/lib/permissions';
 
 interface NavItem {
   label: string;
@@ -106,10 +108,49 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const setActiveRolePreview = useAppStore((s) => s.setActiveRolePreview);
   const updateSettings = useAppStore((s) => s.updateSettings);
   const resetDemoData = useAppStore((s) => s.resetDemoData);
+  const addToast = useAppStore((s) => s.addToast);
 
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [notifMenuOpen, setNotifMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+
+  const workspaceMenuRef = useRef<HTMLDivElement | null>(null);
+  const notifMenuRef = useRef<HTMLDivElement | null>(null);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
+
+  const canManageSettings = canPerformAction(settings.activeRolePreview, 'manage_settings');
+  const canManageBackups = canPerformAction(settings.activeRolePreview, 'manage_backups_and_reset');
+
+  useEffect(() => {
+    if (!workspaceMenuOpen && !notifMenuOpen && !profileMenuOpen && !mobileNavOpen) return;
+    const handlePointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (workspaceMenuOpen && workspaceMenuRef.current && !workspaceMenuRef.current.contains(target)) {
+        setWorkspaceMenuOpen(false);
+      }
+      if (notifMenuOpen && notifMenuRef.current && !notifMenuRef.current.contains(target)) {
+        setNotifMenuOpen(false);
+      }
+      if (profileMenuOpen && profileMenuRef.current && !profileMenuRef.current.contains(target)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setWorkspaceMenuOpen(false);
+        setNotifMenuOpen(false);
+        setProfileMenuOpen(false);
+        if (mobileNavOpen) setMobileNavOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [workspaceMenuOpen, notifMenuOpen, profileMenuOpen, mobileNavOpen, setMobileNavOpen]);
 
   const collapsed = settings.sidebarCollapsed;
   const currentTitle = ROUTE_TITLES[pathname] || 'Executive Workspace';
@@ -132,9 +173,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex flex-col h-full bg-surface-chrome border-r border-line select-none">
         {/* Brand & Workspace Switcher */}
-        <div className="p-4 border-b border-line relative">
+        <div ref={workspaceMenuRef} className="p-4 border-b border-line relative">
           <button
             type="button"
+            aria-expanded={workspaceMenuOpen}
             onClick={() => setWorkspaceMenuOpen((v) => !v)}
             title="Switch workspace unit"
             className={`w-full flex items-center ${
@@ -147,7 +189,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
               {!isIconOnly && (
                 <div className="min-w-0">
-                  <div className="text-xs font-bold text-ink truncate">
+                  <div className="text-sm font-bold tracking-tight text-ink truncate">
                     AURELIX
                   </div>
                   <div className="text-xs text-ink-muted truncate">
@@ -170,11 +212,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <button
                   key={unit.name}
                   type="button"
+                  disabled={!canManageSettings}
+                  title={!canManageSettings ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_settings') : undefined}
                   onClick={() => {
+                    if (!canManageSettings) {
+                      addToast(
+                        'Permission restricted',
+                        getPermissionDeniedMessage(settings.activeRolePreview, 'manage_settings'),
+                        'warning'
+                      );
+                      return;
+                    }
                     updateSettings({ workspaceName: unit.name });
                     setWorkspaceMenuOpen(false);
                   }}
-                  className={`w-full flex items-start gap-3 px-3 py-2 rounded-lg text-left text-xs transition-colors ${
+                  className={`w-full flex items-start gap-3 px-3 py-2 rounded-lg text-left text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                     settings.workspaceName === unit.name
                       ? 'bg-blue-600/10 text-accent font-semibold'
                       : 'text-ink-secondary hover:bg-surface-hover'
@@ -199,7 +251,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {NAV_GROUPS.map((group) => (
             <div key={group.title} className="space-y-1">
               {!isIconOnly && (
-                <div className="px-3 pb-1 text-caption font-semibold text-ink-muted">
+                <div className="px-3 pb-1 text-micro text-ink-muted">
                   {group.title}
                 </div>
               )}
@@ -318,7 +370,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             onClick={() => setMobileNavOpen(false)}
             aria-hidden="true"
           />
-          <div className="relative z-10 w-[260px] h-full">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Mobile Navigation"
+            className="relative z-10 w-[260px] h-full"
+          >
             <button
               type="button"
               onClick={() => setMobileNavOpen(false)}
@@ -382,9 +439,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Notifications Menu */}
-            <div className="relative">
+            <div ref={notifMenuRef} className="relative">
               <button
                 type="button"
+                aria-expanded={notifMenuOpen}
                 onClick={() => {
                   setNotifMenuOpen((v) => !v);
                   setProfileMenuOpen(false);
@@ -491,9 +549,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
 
             {/* User Avatar Dropdown */}
-            <div className="relative">
+            <div ref={profileMenuRef} className="relative">
               <button
                 type="button"
+                aria-expanded={profileMenuOpen}
                 onClick={() => {
                   setProfileMenuOpen((v) => !v);
                   setNotifMenuOpen(false);
@@ -541,11 +600,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {process.env.NODE_ENV === 'development' && (
                     <button
                       type="button"
+                      disabled={!canManageBackups}
+                      title={!canManageBackups ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_backups_and_reset') : undefined}
                       onClick={() => {
-                        resetDemoData();
                         setProfileMenuOpen(false);
+                        setConfirmResetOpen(true);
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-warning hover:bg-amber-500/10 text-left"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-warning hover:bg-amber-500/10 text-left disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       <span>Reset Demo Dataset</span>
@@ -566,11 +627,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Mobile/Tablet Date Range Bar */}
-        <div className="xl:hidden px-4 md:px-6 lg:px-8 py-2 bg-surface-chrome border-b border-line flex items-center justify-between gap-2 overflow-x-auto no-print">
+        <div className="xl:hidden px-4 md:px-6 lg:px-8 py-2 bg-surface-chrome border-b border-line flex flex-wrap items-center justify-between gap-2 no-print">
           <span className="text-xs font-medium text-ink-muted whitespace-nowrap">
             Reporting Window:
           </span>
-          <DateRangePicker />
+          <DateRangePicker popoverAlign="responsive" />
         </div>
 
         {/* Page Viewport */}
@@ -580,6 +641,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <CommandPalette />
+      <ConfirmDialog
+        open={confirmResetOpen}
+        onClose={() => setConfirmResetOpen(false)}
+        onConfirm={resetDemoData}
+        title="Reset Workspace to Default Demo Data?"
+        description="This will overwrite any custom customers, orders, products, or settings stored in your browser's LocalStorage and restore the original deterministic seed dataset."
+        confirmLabel="Restore Default Seed"
+      />
     </div>
   );
 }

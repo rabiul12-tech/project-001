@@ -39,6 +39,8 @@ import {
   OrdersAndCustomerGrowthChart,
   RevenueTrendChart,
 } from '@/components/charts/AnalyticsCharts';
+import { ConfirmDialog } from '@/components/ui/overlays';
+import { canPerformAction, getPermissionDeniedMessage } from '@/lib/permissions';
 
 const IS_DEV = process.env.NODE_ENV === 'development';
 const ONE_DAY_MS = 86400 * 1000;
@@ -91,6 +93,7 @@ export default function ExecutiveOverviewPage() {
   const customStartDate = useAppStore((s) => s.customStartDate);
   const customEndDate = useAppStore((s) => s.customEndDate);
   const resetDemoData = useAppStore((s) => s.resetDemoData);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const addToast = useAppStore((s) => s.addToast);
 
   const [chartMode, setChartMode] = useState<'area' | 'bar' | 'line'>('area');
@@ -220,7 +223,17 @@ export default function ExecutiveOverviewPage() {
             <span>Generate Report</span>
           </Link>
           {IS_DEV && (
-            <button type="button" onClick={resetDemoData} className={SECONDARY_BUTTON}>
+            <button
+              type="button"
+              disabled={!canPerformAction(settings.activeRolePreview, 'manage_backups_and_reset')}
+              title={
+                !canPerformAction(settings.activeRolePreview, 'manage_backups_and_reset')
+                  ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_backups_and_reset')
+                  : undefined
+              }
+              onClick={() => setConfirmResetOpen(true)}
+              className={`${SECONDARY_BUTTON} disabled:opacity-40 disabled:cursor-not-allowed`}
+            >
               <RotateCcw className="w-4 h-4" aria-hidden="true" />
               <span>Reset Seed Data</span>
             </button>
@@ -475,6 +488,15 @@ export default function ExecutiveOverviewPage() {
           </ul>
         </section>
       </div>
+
+      <ConfirmDialog
+        open={confirmResetOpen}
+        onClose={() => setConfirmResetOpen(false)}
+        onConfirm={resetDemoData}
+        title="Reset Workspace to Default Demo Data?"
+        description="This will overwrite any custom customers, orders, products, or settings stored in your browser's LocalStorage and restore the original deterministic seed dataset."
+        confirmLabel="Restore Default Seed"
+      />
     </div>
   );
 }

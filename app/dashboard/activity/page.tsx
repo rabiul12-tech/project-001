@@ -10,7 +10,8 @@ import {
 import { useAppStore } from '@/stores/useAppStore';
 import {
   convertRowsToCsv,
-  formatDateDisplay,
+  formatTimestampUtc,
+  getUtcDayKey,
   triggerBrowserDownload,
 } from '@/lib/export/exporter';
 import { PageHeader, UserAvatar } from '@/components/ui/primitives';
@@ -27,37 +28,42 @@ export default function ActivityFeedPage() {
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(12);
+  const [pageSize, setPageSize] = useState(10);
   const [selectedEvent, setSelectedEvent] = useState<ActivityEvent | null>(null);
 
   const filteredActivities = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return activities.filter((act) => {
-      if (categoryFilter !== 'All' && act.category !== categoryFilter) return false;
-      if (startDateFilter && act.timestamp.slice(0, 10) < startDateFilter) return false;
-      if (endDateFilter && act.timestamp.slice(0, 10) > endDateFilter) return false;
-      if (q) {
-        return (
-          act.action.toLowerCase().includes(q) ||
-          act.description.toLowerCase().includes(q) ||
-          act.actorName.toLowerCase().includes(q) ||
-          act.targetName.toLowerCase().includes(q)
-        );
-      }
-      return true;
-    });
+    return activities
+      .filter((act) => {
+        if (categoryFilter !== 'All' && act.category !== categoryFilter) return false;
+        const dayKey = getUtcDayKey(act.timestamp);
+        if (startDateFilter && (!dayKey || dayKey < startDateFilter)) return false;
+        if (endDateFilter && (!dayKey || dayKey > endDateFilter)) return false;
+        if (q) {
+          return (
+            act.action.toLowerCase().includes(q) ||
+            act.description.toLowerCase().includes(q) ||
+            act.actorName.toLowerCase().includes(q) ||
+            act.targetName.toLowerCase().includes(q)
+          );
+        }
+        return true;
+      })
+      .sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp) || a.id.localeCompare(b.id));
   }, [activities, categoryFilter, searchQuery, startDateFilter, endDateFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredActivities.length / pageSize));
+  const safePage = Math.min(page, totalPages);
   const paginatedActivities = useMemo(
-    () => filteredActivities.slice((page - 1) * pageSize, page * pageSize),
-    [filteredActivities, page, pageSize]
+    () => filteredActivities.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredActivities, safePage, pageSize]
   );
 
   const handleExportActivityLog = () => {
     const headers = [
       'Event ID',
-      'Timestamp',
+      'Timestamp (UTC ISO)',
+      'Displayed Timestamp (UTC)',
       'Actor Name',
       'Actor Role',
       'Category',
@@ -68,6 +74,7 @@ export default function ActivityFeedPage() {
     const rows = filteredActivities.map((a) => [
       a.id,
       a.timestamp,
+      formatTimestampUtc(a.timestamp, settings.dateFormat),
       a.actorName,
       a.actorRole,
       a.category,
@@ -98,7 +105,7 @@ export default function ActivityFeedPage() {
       />
 
       {/* Transparency Notice */}
-      <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-3 text-xs text-ink-secondary">
+      <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-3 text-sm text-ink-secondary leading-relaxed">
         <Info className="w-4 h-4 text-accent mt-1 shrink-0" />
         <span>
           <strong>Client-Side Demo Activity Log:</strong> Events below are persisted locally in your browser&apos;s LocalStorage to demonstrate operational traceability. This is a frontend demonstration log, not a tamper-proof server security audit log.
@@ -178,6 +185,7 @@ export default function ActivityFeedPage() {
             setSearchQuery('');
             setStartDateFilter('');
             setEndDateFilter('');
+            setPage(1);
           }}
         />
       ) : (
@@ -186,24 +194,32 @@ export default function ActivityFeedPage() {
             {paginatedActivities.map((act) => (
               <div
                 key={act.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelectedEvent(act)}
-                className="p-4 sm:px-6 hover:bg-surface-hover/50 cursor-pointer transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelectedEvent(act);
+                  }
+                }}
+                className="p-4 sm:px-6 hover:bg-surface-hover/50 cursor-pointer transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60"
               >
                 <div className="flex items-start gap-4">
                   <UserAvatar name={act.actorName} size="md" />
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="font-bold text-ink">
+                  <div className="space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-ink">
                         {act.action}
                       </span>
-                      <span className="text-ink-muted">·</span>
-                      <span className="tabular-nums text-accent font-medium">
+                      <span className="text-xs text-ink-muted">·</span>
+                      <span className="text-xs tabular-nums text-accent font-medium">
                         {act.targetName}
                       </span>
-                      <span className="text-ink-muted">·</span>
-                      <span className="text-ink-muted">{act.category}</span>
+                      <span className="text-xs text-ink-muted">·</span>
+                      <span className="text-micro text-ink-muted">{act.category}</span>
                     </div>
-                    <p className="text-xs text-ink-secondary leading-relaxed">
+                    <p className="text-sm text-ink-secondary leading-relaxed">
                       {act.description}
                     </p>
                     <div className="text-xs text-ink-muted">
@@ -214,8 +230,7 @@ export default function ActivityFeedPage() {
 
                 <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2 shrink-0">
                   <span className="text-xs tabular-nums text-ink-muted">
-                    {formatDateDisplay(act.timestamp, settings.dateFormat)}{' '}
-                    {act.timestamp.slice(11, 16)} UTC
+                    {formatTimestampUtc(act.timestamp, settings.dateFormat)}
                   </span>
                   <button
                     type="button"
@@ -234,11 +249,15 @@ export default function ActivityFeedPage() {
           </div>
 
           <Pagination
-            currentPage={page}
+            currentPage={safePage}
             totalPages={totalPages}
             totalItems={filteredActivities.length}
             pageSize={pageSize}
             onPageChange={setPage}
+            onPageSizeChange={(s) => {
+              setPageSize(s);
+              setPage(1);
+            }}
           />
         </div>
       )}
@@ -251,25 +270,31 @@ export default function ActivityFeedPage() {
         subtitle={selectedEvent ? `Event ID: ${selectedEvent.id}` : undefined}
       >
         {selectedEvent && (
-          <div className="space-y-4 text-xs">
+          <div className="space-y-4 text-sm">
             <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-3">
-              <div className="flex justify-between">
-                <span className="text-ink-muted">Timestamp (ISO):</span>
-                <span className="tabular-nums">{selectedEvent.timestamp}</span>
+              <div className="flex justify-between gap-4">
+                <span className="text-caption text-ink-muted">Timestamp (UTC):</span>
+                <span className="tabular-nums text-ink">
+                  {formatTimestampUtc(selectedEvent.timestamp, settings.dateFormat)}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-ink-muted">Actor:</span>
-                <span className="font-semibold">
+              <div className="flex justify-between gap-4">
+                <span className="text-caption text-ink-muted">Machine ISO:</span>
+                <span className="tabular-nums text-ink-muted">{selectedEvent.timestamp}</span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-caption text-ink-muted">Actor:</span>
+                <span className="font-semibold text-ink">
                   {selectedEvent.actorName} ({selectedEvent.actorRole})
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-ink-muted">Domain Category:</span>
-                <span className="tabular-nums">{selectedEvent.category}</span>
+              <div className="flex justify-between gap-4">
+                <span className="text-caption text-ink-muted">Domain Category:</span>
+                <span className="tabular-nums text-ink">{selectedEvent.category}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-ink-muted">Target Entity:</span>
-                <span className="tabular-nums text-accent">
+              <div className="flex justify-between gap-4">
+                <span className="text-caption text-ink-muted">Target Entity:</span>
+                <span className="tabular-nums text-accent font-medium">
                   {selectedEvent.targetName}
                 </span>
               </div>

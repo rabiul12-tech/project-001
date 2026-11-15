@@ -13,7 +13,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
-import { calculateOrderTotalsFromItems } from '@/lib/calculations/analytics';
+import { calculateOrderTotalsFromItems, toCents, fromCents } from '@/lib/calculations/analytics';
+import { canPerformAction, getPermissionDeniedMessage } from '@/lib/permissions';
 import {
   convertRowsToCsv,
   formatCurrency,
@@ -66,7 +67,11 @@ function OrdersManagementContent() {
   const [createModalOpen, setCreateModalOpen] = useState(() => searchParams.get('action') === 'new');
   const [refundTargetOrder, setRefundTargetOrder] = useState<Order | null>(null);
   const [refundCustomAmount, setRefundCustomAmount] = useState<string>('');
+  const [refundError, setRefundError] = useState<string | null>(null);
   const [cancelTargetOrder, setCancelTargetOrder] = useState<Order | null>(null);
+
+  const canMutateOrders = canPerformAction(settings.activeRolePreview, 'mutate_orders');
+  const canIssueRefund = canPerformAction(settings.activeRolePreview, 'issue_refund');
 
   // Create Order controlled form state
   const [newCustomerId, setNewCustomerId] = useState<string>(customers[0]?.id || '');
@@ -80,6 +85,16 @@ function OrdersManagementContent() {
     { productId: products[0]?.id || '', quantity: 1 },
   ]);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const resolvedCustomerId = useMemo(
+    () => (customers.some((c) => c.id === newCustomerId) ? newCustomerId : customers[0]?.id || ''),
+    [customers, newCustomerId]
+  );
+
+  const sortedCustomers = useMemo(
+    () => [...customers].sort((a, b) => a.company.localeCompare(b.company)),
+    [customers]
+  );
 
   const filteredOrders = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -112,15 +127,17 @@ function OrdersManagementContent() {
   }, [orders, searchQuery, paymentFilter, fulfillmentFilter, channelFilter, sortField, sortAsc]);
 
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
+  const safePage = Math.min(page, totalPages);
   const paginatedOrders = useMemo(
-    () => filteredOrders.slice((page - 1) * pageSize, page * pageSize),
-    [filteredOrders, page, pageSize]
+    () => filteredOrders.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredOrders, safePage, pageSize]
   );
 
   // Live preview of Create Order calculation
   const draftCalculation = useMemo(() => {
     const pricedItems = newItems.map((it) => {
-      const p = products.find((prod) => prod.id === it.productId);
+      const resolvedProductId = it.productId || products[0]?.id || '';
+      const p = products.find((prod) => prod.id === resolvedProductId);
       return {
         quantity: Math.max(1, Number(it.quantity) || 1),
         unitPrice: p ? p.unitPrice : 0,
@@ -129,31 +146,43 @@ function OrdersManagementContent() {
     return calculateOrderTotalsFromItems(
       pricedItems,
       Number(newDiscount) || 0,
-      (Number(newTaxRatePercent) || 0) / 100
+      (Number.isFinite(Number(newTaxRatePercent)) ? Math.max(0, Number(newTaxRatePercent)) : 0) / 100
     );
   }, [newItems, products, newDiscount, newTaxRatePercent]);
 
   const handleCreateOrderSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
-    if (!newCustomerId) {
+    if (!canMutateOrders) {
+      setFormError(getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_orders'));
+      return;
+    }
+    if (!resolvedCustomerId) {
       setFormError('Please select a customer account.');
       return;
     }
-    if (newItems.length === 0 || newItems.some((i) => !i.productId || i.quantity < 1)) {
+    const normalizedItems = newItems.map((i) => ({
+      productId: i.productId || products[0]?.id || '',
+      quantity: i.quantity,
+    }));
+    if (normalizedItems.length === 0 || normalizedItems.some((i) => !i.productId || i.quantity < 1)) {
       setFormError('Please configure valid products and quantities.');
       return;
     }
 
+    const sanitizedTaxRate = Number.isFinite(Number(newTaxRatePercent))
+      ? Math.max(0, Math.min(30, Number(newTaxRatePercent)))
+      : 0;
+
     const created = createOrder({
-      customerId: newCustomerId,
+      customerId: resolvedCustomerId,
       salesChannel: newChannel,
       paymentStatus: newPaymentStatus,
       fulfillmentStatus: newFulfillmentStatus,
-      discountAmount: Number(newDiscount) || 0,
-      taxRatePercent: Number(newTaxRatePercent) || 8.5,
+      discountAmount: Math.max(0, Number(newDiscount) || 0),
+      taxRatePercent: sanitizedTaxRate,
       notes: newNotes,
-      items: newItems,
+      items: normalizedItems,
     });
 
     if (created) {
@@ -170,6 +199,7 @@ function OrdersManagementContent() {
       setSortField(field);
       setSortAsc(false);
     }
+    setPage(1);
   };
 
   const handleExportOrdersCsv = (onlySelected = false) => {
@@ -221,10 +251,10 @@ function OrdersManagementContent() {
     const paid = orders.filter((o) => o.paymentStatus === 'Paid').length;
     const pending = orders.filter((o) => o.paymentStatus === 'Pending').length;
     const refunded = orders.filter((o) => o.paymentStatus === 'Refunded').length;
-    const totalVal = orders
+    const totalValCents = orders
       .filter((o) => o.paymentStatus === 'Paid' || o.paymentStatus === 'Refunded')
-      .reduce((acc, o) => acc + Math.max(0, o.totalAmount - o.refundedAmount), 0);
-    return { paid, pending, refunded, totalVal };
+      .reduce((acc, o) => acc + Math.max(0, toCents(o.totalAmount) - toCents(o.refundedAmount)), 0);
+    return { paid, pending, refunded, totalVal: fromCents(totalValCents) };
   }, [orders]);
 
   return (
@@ -245,8 +275,17 @@ function OrdersManagementContent() {
             </button>
             <button
               type="button"
-              onClick={() => setCreateModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
+              disabled={!canMutateOrders}
+              title={!canMutateOrders ? getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_orders') : undefined}
+              onClick={() => {
+                if (!canMutateOrders) {
+                  addToast('Permission restricted', getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_orders'), 'warning');
+                  return;
+                }
+                setFormError(null);
+                setCreateModalOpen(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Create Order</span>
@@ -352,11 +391,13 @@ function OrdersManagementContent() {
             </span>
             <button
               type="button"
+              disabled={!canMutateOrders}
+              title={!canMutateOrders ? getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_orders') : undefined}
               onClick={() => {
                 bulkUpdateOrderStatus(selectedIds, 'Paid', 'Fulfilled');
                 setSelectedIds([]);
               }}
-              className="px-3 py-2 rounded-lg text-xs font-medium bg-emerald-600/10 text-success hover:bg-emerald-600/20"
+              className="px-3 py-2 rounded-lg text-xs font-medium bg-emerald-600/10 text-success hover:bg-emerald-600/20 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Mark Paid & Fulfilled
             </button>
@@ -382,6 +423,7 @@ function OrdersManagementContent() {
             setPaymentFilter('All');
             setFulfillmentFilter('All');
             setChannelFilter('All');
+            setPage(1);
           }}
         />
       ) : (
@@ -389,8 +431,8 @@ function OrdersManagementContent() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm table-sticky-first">
               <thead>
-                <tr className="border-b border-line bg-surface-sunken/60 text-xs font-semibold text-ink-muted">
-                  <th className="py-3 px-4 w-9">
+                <tr className="border-b border-line bg-surface-sunken/60 text-caption font-semibold text-ink-muted">
+                  <th scope="col" className="py-3 px-4 w-9">
                     <input
                       type="checkbox"
                       aria-label="Select all orders on page"
@@ -410,7 +452,7 @@ function OrdersManagementContent() {
                       className="rounded border-line"
                     />
                   </th>
-                  <th className="py-3 px-4">
+                  <th scope="col" className="py-3 px-4">
                     <button
                       type="button"
                       onClick={() => handleSort('orderNumber')}
@@ -420,8 +462,8 @@ function OrdersManagementContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th className="py-3 px-4">Customer Account</th>
-                  <th className="py-3 px-4">
+                  <th scope="col" className="py-3 px-4">Customer Account</th>
+                  <th scope="col" className="py-3 px-4">
                     <button
                       type="button"
                       onClick={() => handleSort('orderDate')}
@@ -431,10 +473,10 @@ function OrdersManagementContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th className="py-3 px-4">Channel</th>
-                  <th className="py-3 px-4">Payment</th>
-                  <th className="py-3 px-4">Fulfillment</th>
-                  <th className="py-3 px-4 text-right">
+                  <th scope="col" className="py-3 px-4">Channel</th>
+                  <th scope="col" className="py-3 px-4">Payment</th>
+                  <th scope="col" className="py-3 px-4">Fulfillment</th>
+                  <th scope="col" className="py-3 px-4 text-right">
                     <button
                       type="button"
                       onClick={() => handleSort('totalAmount')}
@@ -444,7 +486,7 @@ function OrdersManagementContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th scope="col" className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-subtle">
@@ -516,12 +558,14 @@ function OrdersManagementContent() {
                         {ord.paymentStatus === 'Paid' && (
                           <button
                             type="button"
+                            disabled={!canIssueRefund}
                             onClick={() => {
                               setRefundTargetOrder(ord);
                               setRefundCustomAmount(String(ord.totalAmount));
+                              setRefundError(null);
                             }}
-                            title="Issue simulated refund"
-                            className="p-2 rounded-lg text-ink-muted hover:text-amber-600 hover:bg-amber-500/10"
+                            title={!canIssueRefund ? getPermissionDeniedMessage(settings.activeRolePreview, 'issue_refund') : 'Issue simulated refund'}
+                            className="p-2 rounded-lg text-ink-muted hover:text-amber-600 hover:bg-amber-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             <RotateCcw className="w-3.5 h-3.5" />
                           </button>
@@ -529,9 +573,10 @@ function OrdersManagementContent() {
                         {ord.fulfillmentStatus !== 'Canceled' && (
                           <button
                             type="button"
+                            disabled={!canMutateOrders}
                             onClick={() => setCancelTargetOrder(ord)}
-                            title="Cancel order"
-                            className="p-2 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-500/10"
+                            title={!canMutateOrders ? getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_orders') : 'Cancel order'}
+                            className="p-2 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             <XCircle className="w-3.5 h-3.5" />
                           </button>
@@ -545,7 +590,7 @@ function OrdersManagementContent() {
           </div>
 
           <Pagination
-            currentPage={page}
+            currentPage={safePage}
             totalPages={totalPages}
             totalItems={filteredOrders.length}
             pageSize={pageSize}
@@ -579,11 +624,11 @@ function OrdersManagementContent() {
                 Customer Account
               </label>
               <select
-                value={newCustomerId}
+                value={resolvedCustomerId}
                 onChange={(e) => setNewCustomerId(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               >
-                {customers.slice(0, 80).map((c) => (
+                {sortedCustomers.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.company} ({c.name})
                   </option>
@@ -812,8 +857,19 @@ function OrdersManagementContent() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              const amt = Number(refundCustomAmount) || refundTargetOrder.totalAmount;
-              refundOrder(refundTargetOrder.id, amt);
+              if (!canIssueRefund) {
+                setRefundError(getPermissionDeniedMessage(settings.activeRolePreview, 'issue_refund'));
+                return;
+              }
+              const parsed = Number(refundCustomAmount);
+              if (!Number.isFinite(parsed) || parsed <= 0 || parsed > refundTargetOrder.totalAmount) {
+                setRefundError(
+                  `Enter a valid refund amount between 0.01 and ${formatCurrency(refundTargetOrder.totalAmount, settings.currency, settings.numberFormat)}.`
+                );
+                return;
+              }
+              setRefundError(null);
+              refundOrder(refundTargetOrder.id, parsed);
               setRefundTargetOrder(null);
             }}
             className="space-y-4 text-xs"
@@ -821,17 +877,25 @@ function OrdersManagementContent() {
             <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-warning leading-relaxed">
               Issuing a simulated refund deducts the refunded amount from Net Realized Revenue and updates the Refund Rate across all executive dashboards.
             </div>
+            {refundError && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-danger">
+                {refundError}
+              </div>
+            )}
             <div>
               <label className="block font-medium text-ink-secondary mb-1">
-                Refund Amount (Max: {formatCurrency(refundTargetOrder.totalAmount, settings.currency)})
+                Refund Amount (Max: {formatCurrency(refundTargetOrder.totalAmount, settings.currency, settings.numberFormat)})
               </label>
               <input
                 type="number"
                 step="0.01"
-                min={1}
+                min={0.01}
                 max={refundTargetOrder.totalAmount}
                 value={refundCustomAmount}
-                onChange={(e) => setRefundCustomAmount(e.target.value)}
+                onChange={(e) => {
+                  setRefundCustomAmount(e.target.value);
+                  setRefundError(null);
+                }}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums text-sm"
               />
             </div>
@@ -891,6 +955,7 @@ function OrdersManagementContent() {
                   <label className="block text-xs text-ink-muted mb-1">Payment Status</label>
                   <select
                     value={activeDrawerOrder.paymentStatus}
+                    disabled={!canMutateOrders}
                     onChange={(e) =>
                       updateOrderStatus(
                         activeDrawerOrder.id,
@@ -898,7 +963,7 @@ function OrdersManagementContent() {
                         activeDrawerOrder.fulfillmentStatus
                       )
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-surface-raised border border-line"
+                    className="w-full px-3 py-2 rounded-lg bg-surface-raised border border-line disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="Paid">Paid</option>
                     <option value="Pending">Pending</option>
@@ -910,6 +975,7 @@ function OrdersManagementContent() {
                   <label className="block text-xs text-ink-muted mb-1">Fulfillment Status</label>
                   <select
                     value={activeDrawerOrder.fulfillmentStatus}
+                    disabled={!canMutateOrders}
                     onChange={(e) =>
                       updateOrderStatus(
                         activeDrawerOrder.id,
@@ -917,7 +983,7 @@ function OrdersManagementContent() {
                         e.target.value as FulfillmentStatus
                       )
                     }
-                    className="w-full px-3 py-2 rounded-lg bg-surface-raised border border-line"
+                    className="w-full px-3 py-2 rounded-lg bg-surface-raised border border-line disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <option value="Fulfilled">Fulfilled</option>
                     <option value="Processing">Processing</option>
@@ -931,11 +997,14 @@ function OrdersManagementContent() {
                 {activeDrawerOrder.paymentStatus === 'Paid' && (
                   <button
                     type="button"
+                    disabled={!canIssueRefund}
+                    title={!canIssueRefund ? getPermissionDeniedMessage(settings.activeRolePreview, 'issue_refund') : undefined}
                     onClick={() => {
                       setRefundTargetOrder(activeDrawerOrder);
                       setRefundCustomAmount(String(activeDrawerOrder.totalAmount));
+                      setRefundError(null);
                     }}
-                    className="px-3 py-2 rounded-lg bg-amber-500/10 text-warning font-medium hover:bg-amber-500/20"
+                    className="px-3 py-2 rounded-lg bg-amber-500/10 text-warning font-medium hover:bg-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Issue Simulated Refund
                   </button>
@@ -943,8 +1012,10 @@ function OrdersManagementContent() {
                 {activeDrawerOrder.fulfillmentStatus !== 'Canceled' && (
                   <button
                     type="button"
+                    disabled={!canMutateOrders}
+                    title={!canMutateOrders ? getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_orders') : undefined}
                     onClick={() => setCancelTargetOrder(activeDrawerOrder)}
-                    className="px-3 py-2 rounded-lg bg-red-500/10 text-danger font-medium hover:bg-red-500/20"
+                    className="px-3 py-2 rounded-lg bg-red-500/10 text-danger font-medium hover:bg-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Cancel Order
                   </button>
@@ -953,18 +1024,18 @@ function OrdersManagementContent() {
             </div>
 
             {/* Line Items Table */}
-            <div className="space-y-2">
-              <h3 className="font-bold text-ink">
+            <div className="space-y-2.5">
+              <h3 className="text-subheading text-ink">
                 Line Items ({activeDrawerOrder.lineItems.length})
               </h3>
               <div className="rounded-xl border border-line overflow-hidden">
-                <table className="w-full text-left border-collapse table-sticky-first">
+                <table className="w-full text-left border-collapse text-sm table-sticky-first">
                   <thead>
-                    <tr className="border-b border-line bg-surface-sunken text-xs text-ink-muted">
-                      <th className="py-2 px-3">Product / SKU</th>
-                      <th className="py-2 px-3 text-right">Qty</th>
-                      <th className="py-2 px-3 text-right">Locked Price</th>
-                      <th className="py-2 px-3 text-right">Subtotal</th>
+                    <tr className="border-b border-line bg-surface-sunken text-caption font-medium text-ink-muted">
+                      <th scope="col" className="py-2 px-3">Product / SKU</th>
+                      <th scope="col" className="py-2 px-3 text-right">Qty</th>
+                      <th scope="col" className="py-2 px-3 text-right">Locked Price</th>
+                      <th scope="col" className="py-2 px-3 text-right">Subtotal</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line-subtle">

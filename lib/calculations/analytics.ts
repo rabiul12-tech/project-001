@@ -31,19 +31,60 @@ export interface DateWindow {
   days: number;
 }
 
+const ONE_DAY_MS = 86_400_000;
+const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+export function toCents(amount: number): number {
+  if (!Number.isFinite(amount)) return 0;
+  return Math.round(amount * 100);
+}
+
+export function fromCents(cents: number): number {
+  if (!Number.isFinite(cents)) return 0;
+  return Math.round(cents) / 100;
+}
+
+function parseWindowStartMs(value: string): number {
+  const trimmed = value.trim();
+  if (DATE_ONLY_REGEX.test(trimmed)) {
+    return Date.parse(`${trimmed}T00:00:00.000Z`);
+  }
+  return Date.parse(trimmed);
+}
+
+function parseWindowEndMs(value: string): number {
+  const trimmed = value.trim();
+  if (DATE_ONLY_REGEX.test(trimmed)) {
+    return Date.parse(`${trimmed}T23:59:59.999Z`);
+  }
+  return Date.parse(trimmed);
+}
+
 export function resolveDateWindow(
   preset: DateRangePreset,
   customStart?: string,
   customEnd?: string,
-  referenceIso: string = nowIso()
+  referenceIso: string = nowIso(),
+  earliestRecordIso?: string
 ): DateWindow {
-  // Presets always end now; only an explicit custom range uses its own end date.
-  const endMs =
-    preset === 'custom' && customEnd
-      ? new Date(customEnd).getTime()
-      : new Date(referenceIso).getTime();
-  const oneDayMs = 86400 * 1000;
+  const parsedRef = Date.parse(referenceIso);
+  const refMs = Number.isFinite(parsedRef) ? parsedRef : Date.now();
 
+  if (preset === 'custom') {
+    const parsedEnd = customEnd ? parseWindowEndMs(customEnd) : NaN;
+    const endMs = Number.isFinite(parsedEnd) ? parsedEnd : refMs;
+    const parsedStart = customStart ? parseWindowStartMs(customStart) : NaN;
+    const rawStartMs = Number.isFinite(parsedStart) ? parsedStart : endMs - 30 * ONE_DAY_MS;
+    const startMs = Math.min(rawStartMs, endMs);
+    const spanMs = Math.max(0, endMs - startMs);
+    const days = Math.max(1, Math.round(spanMs / ONE_DAY_MS));
+    const prevEndMs = startMs - 1;
+    const prevStartMs = prevEndMs - Math.max(ONE_DAY_MS - 1, spanMs);
+    return { startMs, endMs, prevStartMs, prevEndMs, days };
+  }
+
+  // Presets always end at the active clock reference timestamp.
+  const endMs = refMs;
   let days = 30;
   if (preset === '7d') days = 7;
   else if (preset === '30d') days = 30;
@@ -51,17 +92,17 @@ export function resolveDateWindow(
   else if (preset === '6m') days = 180;
   else if (preset === '12m') days = 365;
   else if (preset === 'all') days = 365;
-  else if (preset === 'custom' && customStart) {
-    const startCustomMs = new Date(customStart).getTime();
-    days = Math.max(1, Math.round((endMs - startCustomMs) / oneDayMs));
+
+  let startMs = endMs - days * ONE_DAY_MS;
+  if (preset === 'all' && earliestRecordIso) {
+    const earliestMs = Date.parse(earliestRecordIso);
+    if (Number.isFinite(earliestMs) && earliestMs < startMs) {
+      startMs = earliestMs;
+      days = Math.max(365, Math.ceil((endMs - startMs) / ONE_DAY_MS));
+    }
   }
 
-  const startMs =
-    preset === 'custom' && customStart
-      ? new Date(customStart).getTime()
-      : endMs - days * oneDayMs;
-
-  const durationMs = Math.max(oneDayMs, endMs - startMs);
+  const durationMs = Math.max(ONE_DAY_MS, endMs - startMs);
   const prevEndMs = startMs - 1;
   const prevStartMs = prevEndMs - durationMs;
 
@@ -69,10 +110,12 @@ export function resolveDateWindow(
 }
 
 export function filterOrdersByWindow(orders: Order[], startMs: number, endMs: number): Order[] {
-  return orders.filter((o) => {
-    const t = new Date(o.orderDate).getTime();
-    return t >= startMs && t <= endMs;
-  });
+  return orders
+    .filter((o) => {
+      const t = Date.parse(o.orderDate);
+      return Number.isFinite(t) && t >= startMs && t <= endMs;
+    })
+    .sort((a, b) => Date.parse(b.orderDate) - Date.parse(a.orderDate) || b.id.localeCompare(a.id));
 }
 
 export function calculatePercentChange(current: number, previous: number): number {
@@ -109,26 +152,27 @@ export function calculateFinancialSummary(
 ): FinancialSummary {
   const periodOrders = filterOrdersByWindow(orders, startMs, endMs);
 
-  let grossRevenue = 0;
-  let netRevenue = 0;
-  let totalDiscounts = 0;
-  let totalTax = 0;
-  let totalRefunds = 0;
-  let pendingRevenue = 0;
-  let failedOrderVolume = 0;
+  let grossCents = 0;
+  let netCents = 0;
+  let discountCents = 0;
+  let taxCents = 0;
+  let refundCents = 0;
+  let pendingCents = 0;
+  let failedCents = 0;
   let paidOrdersCount = 0;
   let refundedOrdersCount = 0;
 
   const activeCustomerIds = new Set<string>();
 
   for (const order of periodOrders) {
+    const orderTotalCents = toCents(order.totalAmount);
     if (order.paymentStatus === 'Paid' || order.paymentStatus === 'Refunded') {
-      grossRevenue += order.subtotal;
-      totalDiscounts += order.discountAmount;
-      totalTax += order.taxAmount;
-      totalRefunds += order.refundedAmount;
-      const realizedNet = Math.max(0, order.totalAmount - order.refundedAmount);
-      netRevenue += realizedNet;
+      const orderRefundCents = Math.min(orderTotalCents, Math.max(0, toCents(order.refundedAmount)));
+      grossCents += toCents(order.subtotal);
+      discountCents += toCents(order.discountAmount);
+      taxCents += toCents(order.taxAmount);
+      refundCents += orderRefundCents;
+      netCents += Math.max(0, orderTotalCents - orderRefundCents);
       activeCustomerIds.add(order.customerId);
 
       if (order.paymentStatus === 'Paid') {
@@ -137,17 +181,18 @@ export function calculateFinancialSummary(
         refundedOrdersCount++;
       }
     } else if (order.paymentStatus === 'Pending' && order.fulfillmentStatus !== 'Canceled') {
-      pendingRevenue += order.totalAmount;
+      pendingCents += orderTotalCents;
       activeCustomerIds.add(order.customerId);
     } else if (order.paymentStatus === 'Failed' || order.fulfillmentStatus === 'Canceled') {
-      failedOrderVolume += order.totalAmount;
+      failedCents += orderTotalCents;
     }
   }
 
   const eligibleOrderCount = paidOrdersCount + refundedOrdersCount;
-  const averageOrderValue = eligibleOrderCount > 0 ? netRevenue / eligibleOrderCount : 0;
+  const averageOrderValue =
+    eligibleOrderCount > 0 ? fromCents(Math.round(netCents / eligibleOrderCount)) : 0;
   const refundRatePercent =
-    grossRevenue > 0 ? Math.round((totalRefunds / grossRevenue) * 1000) / 10 : 0;
+    grossCents > 0 ? Math.round((refundCents / grossCents) * 1000) / 10 : 0;
 
   // Sessions within window
   const startIsoDay = new Date(startMs).toISOString().slice(0, 10);
@@ -169,17 +214,17 @@ export function calculateFinancialSummary(
       : 0;
 
   return {
-    grossRevenue: Math.round(grossRevenue * 100) / 100,
-    netRevenue: Math.round(netRevenue * 100) / 100,
-    totalDiscounts: Math.round(totalDiscounts * 100) / 100,
-    totalTax: Math.round(totalTax * 100) / 100,
-    totalRefunds: Math.round(totalRefunds * 100) / 100,
-    pendingRevenue: Math.round(pendingRevenue * 100) / 100,
-    failedOrderVolume: Math.round(failedOrderVolume * 100) / 100,
+    grossRevenue: fromCents(grossCents),
+    netRevenue: fromCents(netCents),
+    totalDiscounts: fromCents(discountCents),
+    totalTax: fromCents(taxCents),
+    totalRefunds: fromCents(refundCents),
+    pendingRevenue: fromCents(pendingCents),
+    failedOrderVolume: fromCents(failedCents),
     totalOrdersCount: periodOrders.length,
     paidOrdersCount,
     refundedOrdersCount,
-    averageOrderValue: Math.round(averageOrderValue * 100) / 100,
+    averageOrderValue,
     refundRatePercent,
     activeCustomersCount: activeCustomerIds.size,
     conversionRatePercent,
@@ -262,9 +307,9 @@ export function buildRevenueTimeSeries(
     string,
     {
       label: string;
-      grossRevenue: number;
-      netRevenue: number;
-      refunds: number;
+      grossCents: number;
+      netCents: number;
+      refundCents: number;
       orders: number;
       eligibleOrders: number;
       newCustomers: number;
@@ -272,40 +317,46 @@ export function buildRevenueTimeSeries(
   >();
 
   const stepDays = groupByDay ? 1 : window.days <= 120 ? 7 : 30;
-  const oneDayMs = 86400 * 1000;
 
   if (groupByDay) {
-    for (let t = window.startMs; t <= window.endMs; t += oneDayMs) {
+    const sD = new Date(window.startMs);
+    const eD = new Date(window.endMs);
+    const startUtcDay = Date.UTC(sD.getUTCFullYear(), sD.getUTCMonth(), sD.getUTCDate());
+    const endUtcDay = Date.UTC(eD.getUTCFullYear(), eD.getUTCMonth(), eD.getUTCDate());
+    for (let t = startUtcDay; t <= endUtcDay; t += ONE_DAY_MS) {
       const d = new Date(t);
       const key = d.toISOString().slice(0, 10);
       const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
       buckets.set(key, {
         label,
-        grossRevenue: 0,
-        netRevenue: 0,
-        refunds: 0,
+        grossCents: 0,
+        netCents: 0,
+        refundCents: 0,
         orders: 0,
         eligibleOrders: 0,
         newCustomers: 0,
       });
     }
   } else if (stepDays === 7) {
-    // Weekly buckets
-    let cursor = window.startMs;
-    while (cursor <= window.endMs) {
+    // Weekly buckets aligned to start UTC day
+    const sD = new Date(window.startMs);
+    const eD = new Date(window.endMs);
+    let cursor = Date.UTC(sD.getUTCFullYear(), sD.getUTCMonth(), sD.getUTCDate());
+    const endUtcDay = Date.UTC(eD.getUTCFullYear(), eD.getUTCMonth(), eD.getUTCDate());
+    while (cursor <= endUtcDay) {
       const d = new Date(cursor);
       const key = d.toISOString().slice(0, 10);
       const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
       buckets.set(key, {
         label,
-        grossRevenue: 0,
-        netRevenue: 0,
-        refunds: 0,
+        grossCents: 0,
+        netCents: 0,
+        refundCents: 0,
         orders: 0,
         eligibleOrders: 0,
         newCustomers: 0,
       });
-      cursor += 7 * oneDayMs;
+      cursor += 7 * ONE_DAY_MS;
     }
   } else {
     // Monthly buckets
@@ -319,9 +370,9 @@ export function buildRevenueTimeSeries(
       const label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' });
       buckets.set(key, {
         label,
-        grossRevenue: 0,
-        netRevenue: 0,
-        refunds: 0,
+        grossCents: 0,
+        netCents: 0,
+        refundCents: 0,
         orders: 0,
         eligibleOrders: 0,
         newCustomers: 0,
@@ -337,18 +388,21 @@ export function buildRevenueTimeSeries(
   const bucketKeys = Array.from(buckets.keys());
 
   const findBucketKey = (isoDate: string): string | undefined => {
+    const ms = Date.parse(isoDate);
+    if (!Number.isFinite(ms)) return undefined;
+    const utcIso = new Date(ms).toISOString();
     if (groupByDay) {
-      return isoDate.slice(0, 10);
+      return utcIso.slice(0, 10);
     }
     if (stepDays === 7) {
-      const targetDay = isoDate.slice(0, 10);
+      const targetDay = utcIso.slice(0, 10);
       let chosen = bucketKeys[0];
       for (const k of bucketKeys) {
         if (k <= targetDay) chosen = k;
       }
       return chosen;
     }
-    return isoDate.slice(0, 7);
+    return utcIso.slice(0, 7);
   };
 
   for (const order of filteredOrders) {
@@ -357,16 +411,18 @@ export function buildRevenueTimeSeries(
     const b = buckets.get(key)!;
     b.orders += 1;
     if (order.paymentStatus === 'Paid' || order.paymentStatus === 'Refunded') {
-      b.grossRevenue += order.subtotal;
-      b.netRevenue += Math.max(0, order.totalAmount - order.refundedAmount);
-      b.refunds += order.refundedAmount;
+      const totalCents = toCents(order.totalAmount);
+      const refundCents = Math.min(totalCents, Math.max(0, toCents(order.refundedAmount)));
+      b.grossCents += toCents(order.subtotal);
+      b.netCents += Math.max(0, totalCents - refundCents);
+      b.refundCents += refundCents;
       b.eligibleOrders += 1;
     }
   }
 
   for (const cust of customers) {
-    const ct = new Date(cust.createdAt).getTime();
-    if (ct >= window.startMs && ct <= window.endMs) {
+    const ct = Date.parse(cust.createdAt);
+    if (Number.isFinite(ct) && ct >= window.startMs && ct <= window.endMs) {
       const key = findBucketKey(cust.createdAt);
       if (key && buckets.has(key)) {
         buckets.get(key)!.newCustomers += 1;
@@ -377,11 +433,11 @@ export function buildRevenueTimeSeries(
   return Array.from(buckets.entries()).map(([dateKey, b]) => ({
     label: b.label,
     dateKey,
-    grossRevenue: Math.round(b.grossRevenue),
-    netRevenue: Math.round(b.netRevenue),
-    refunds: Math.round(b.refunds),
+    grossRevenue: fromCents(b.grossCents),
+    netRevenue: fromCents(b.netCents),
+    refunds: fromCents(b.refundCents),
     orders: b.orders,
-    aov: b.eligibleOrders > 0 ? Math.round(b.netRevenue / b.eligibleOrders) : 0,
+    aov: b.eligibleOrders > 0 ? fromCents(Math.round(b.netCents / b.eligibleOrders)) : 0,
     newCustomers: b.newCustomers,
   }));
 }
@@ -394,21 +450,23 @@ export interface ChannelBreakdownItem {
 }
 
 export function calculateSalesByChannel(orders: Order[]): ChannelBreakdownItem[] {
-  const map = new Map<SalesChannel, { orders: number; netRevenue: number }>([
-    ['Direct Enterprise', { orders: 0, netRevenue: 0 }],
-    ['Self-Serve Web', { orders: 0, netRevenue: 0 }],
-    ['Partner Channel', { orders: 0, netRevenue: 0 }],
-    ['Marketplace', { orders: 0, netRevenue: 0 }],
+  const map = new Map<SalesChannel, { orders: number; netCents: number }>([
+    ['Direct Enterprise', { orders: 0, netCents: 0 }],
+    ['Self-Serve Web', { orders: 0, netCents: 0 }],
+    ['Partner Channel', { orders: 0, netCents: 0 }],
+    ['Marketplace', { orders: 0, netCents: 0 }],
   ]);
 
-  let totalNet = 0;
+  let totalNetCents = 0;
   for (const o of orders) {
-    const entry = map.get(o.salesChannel) || { orders: 0, netRevenue: 0 };
+    const entry = map.get(o.salesChannel) || { orders: 0, netCents: 0 };
     entry.orders += 1;
     if (o.paymentStatus === 'Paid' || o.paymentStatus === 'Refunded') {
-      const net = Math.max(0, o.totalAmount - o.refundedAmount);
-      entry.netRevenue += net;
-      totalNet += net;
+      const totalCents = toCents(o.totalAmount);
+      const refundCents = Math.min(totalCents, Math.max(0, toCents(o.refundedAmount)));
+      const netCents = Math.max(0, totalCents - refundCents);
+      entry.netCents += netCents;
+      totalNetCents += netCents;
     }
     map.set(o.salesChannel, entry);
   }
@@ -417,8 +475,8 @@ export function calculateSalesByChannel(orders: Order[]): ChannelBreakdownItem[]
     .map(([channel, stats]) => ({
       channel,
       orders: stats.orders,
-      netRevenue: Math.round(stats.netRevenue),
-      sharePercent: totalNet > 0 ? Math.round((stats.netRevenue / totalNet) * 1000) / 10 : 0,
+      netRevenue: fromCents(stats.netCents),
+      sharePercent: totalNetCents > 0 ? Math.round((stats.netCents / totalNetCents) * 1000) / 10 : 0,
     }))
     .sort((a, b) => b.netRevenue - a.netRevenue);
 }
@@ -440,19 +498,20 @@ export function calculateSalesByCategory(orders: Order[]): CategoryPerformanceIt
     'Advisory Retainer',
   ];
 
-  const map = new Map<ProductCategory, { unitsSold: number; grossRevenue: number }>();
+  const map = new Map<ProductCategory, { unitsSold: number; grossCents: number }>();
   for (const c of categories) {
-    map.set(c, { unitsSold: 0, grossRevenue: 0 });
+    map.set(c, { unitsSold: 0, grossCents: 0 });
   }
 
-  let totalGross = 0;
+  let totalGrossCents = 0;
   for (const o of orders) {
     if (o.paymentStatus !== 'Paid' && o.paymentStatus !== 'Refunded') continue;
     for (const item of o.lineItems) {
-      const entry = map.get(item.category) || { unitsSold: 0, grossRevenue: 0 };
+      const entry = map.get(item.category) || { unitsSold: 0, grossCents: 0 };
+      const itemCents = toCents(item.subtotal);
       entry.unitsSold += item.quantity;
-      entry.grossRevenue += item.subtotal;
-      totalGross += item.subtotal;
+      entry.grossCents += itemCents;
+      totalGrossCents += itemCents;
       map.set(item.category, entry);
     }
   }
@@ -461,8 +520,9 @@ export function calculateSalesByCategory(orders: Order[]): CategoryPerformanceIt
     .map(([category, stats]) => ({
       category,
       unitsSold: stats.unitsSold,
-      grossRevenue: Math.round(stats.grossRevenue),
-      sharePercent: totalGross > 0 ? Math.round((stats.grossRevenue / totalGross) * 1000) / 10 : 0,
+      grossRevenue: fromCents(stats.grossCents),
+      sharePercent:
+        totalGrossCents > 0 ? Math.round((stats.grossCents / totalGrossCents) * 1000) / 10 : 0,
     }))
     .sort((a, b) => b.grossRevenue - a.grossRevenue);
 }
@@ -485,7 +545,7 @@ export function calculateProductPerformance(
 ): ProductPerformanceRow[] {
   const statsMap = new Map<
     string,
-    { unitsSold: number; ordersCount: number; grossRevenue: number }
+    { unitsSold: number; orderIds: Set<string>; grossCents: number }
   >();
 
   for (const o of orders) {
@@ -493,28 +553,28 @@ export function calculateProductPerformance(
     for (const li of o.lineItems) {
       const existing = statsMap.get(li.productId) || {
         unitsSold: 0,
-        ordersCount: 0,
-        grossRevenue: 0,
+        orderIds: new Set<string>(),
+        grossCents: 0,
       };
       existing.unitsSold += li.quantity;
-      existing.ordersCount += 1;
-      existing.grossRevenue += li.subtotal;
+      existing.orderIds.add(o.id);
+      existing.grossCents += toCents(li.subtotal);
       statsMap.set(li.productId, existing);
     }
   }
 
   return products
     .map((p) => {
-      const st = statsMap.get(p.id) || { unitsSold: 0, ordersCount: 0, grossRevenue: 0 };
+      const st = statsMap.get(p.id);
       return {
         productId: p.id,
         sku: p.sku,
         name: p.name,
         category: p.category,
         currentUnitPrice: p.unitPrice,
-        unitsSold: st.unitsSold,
-        ordersCount: st.ordersCount,
-        grossRevenue: Math.round(st.grossRevenue * 100) / 100,
+        unitsSold: st ? st.unitsSold : 0,
+        ordersCount: st ? st.orderIds.size : 0,
+        grossRevenue: st ? fromCents(st.grossCents) : 0,
         stockLevel: p.stockLevel,
       };
     })
@@ -534,31 +594,51 @@ export function enrichCustomersWithMetrics(
 ): CustomerWithMetrics[] {
   const agg = new Map<
     string,
-    { spend: number; count: number; lastDate: string | null }
+    { spendCents: number; count: number; settledCount: number; lastDate: string | null; lastMs: number }
   >();
 
   for (const o of orders) {
-    const cur = agg.get(o.customerId) || { spend: 0, count: 0, lastDate: null };
+    const cur = agg.get(o.customerId) || {
+      spendCents: 0,
+      count: 0,
+      settledCount: 0,
+      lastDate: null,
+      lastMs: -Infinity,
+    };
     cur.count += 1;
     if (o.paymentStatus === 'Paid' || o.paymentStatus === 'Refunded') {
-      cur.spend += Math.max(0, o.totalAmount - o.refundedAmount);
+      const totalCents = toCents(o.totalAmount);
+      const refundCents = Math.min(totalCents, Math.max(0, toCents(o.refundedAmount)));
+      cur.spendCents += Math.max(0, totalCents - refundCents);
+      cur.settledCount += 1;
     }
-    if (!cur.lastDate || o.orderDate > cur.lastDate) {
+    const orderMs = Date.parse(o.orderDate);
+    if (Number.isFinite(orderMs) && orderMs > cur.lastMs) {
+      cur.lastMs = orderMs;
       cur.lastDate = o.orderDate;
     }
     agg.set(o.customerId, cur);
   }
 
   return customers.map((c) => {
-    const stats = agg.get(c.id) || { spend: 0, count: 0, lastDate: null };
-    const lifetimeSpend = Math.round(stats.spend * 100) / 100;
+    const stats = agg.get(c.id);
+    if (!stats) {
+      return {
+        ...c,
+        lifetimeSpend: 0,
+        ordersCount: 0,
+        lastOrderDate: null,
+        averageOrderValue: 0,
+      };
+    }
+    const lifetimeSpend = fromCents(stats.spendCents);
     return {
       ...c,
       lifetimeSpend,
       ordersCount: stats.count,
       lastOrderDate: stats.lastDate,
       averageOrderValue:
-        stats.count > 0 ? Math.round((lifetimeSpend / stats.count) * 100) / 100 : 0,
+        stats.settledCount > 0 ? fromCents(Math.round(stats.spendCents / stats.settledCount)) : 0,
     };
   });
 }
@@ -568,19 +648,20 @@ export function calculateOrderTotalsFromItems(
   discountAmount: number,
   taxRate: number
 ) {
-  const subtotal = items.reduce(
-    (sum, item) => sum + Math.round(item.quantity * item.unitPrice * 100) / 100,
+  const subtotalCents = items.reduce(
+    (sum, item) => sum + Math.round(Math.max(0, item.quantity) * toCents(item.unitPrice)),
     0
   );
-  const clampedDiscount = Math.min(subtotal, Math.max(0, discountAmount));
-  const taxableBase = Math.max(0, subtotal - clampedDiscount);
-  const taxAmount = Math.round(taxableBase * taxRate * 100) / 100;
-  const totalAmount = Math.round((taxableBase + taxAmount) * 100) / 100;
+  const clampedDiscountCents = Math.min(subtotalCents, Math.max(0, toCents(discountAmount)));
+  const taxableCents = Math.max(0, subtotalCents - clampedDiscountCents);
+  const safeTaxRate = Math.max(0, Number.isFinite(taxRate) ? taxRate : 0);
+  const taxCents = Math.round(taxableCents * safeTaxRate);
+  const totalCents = taxableCents + taxCents;
 
   return {
-    subtotal: Math.round(subtotal * 100) / 100,
-    discountAmount: Math.round(clampedDiscount * 100) / 100,
-    taxAmount,
-    totalAmount,
+    subtotal: fromCents(subtotalCents),
+    discountAmount: fromCents(clampedDiscountCents),
+    taxAmount: fromCents(taxCents),
+    totalAmount: fromCents(totalCents),
   };
 }

@@ -1,5 +1,6 @@
 import { CurrencyCode, DateFormatOption, NumberFormatOption } from '@/types';
-import { format } from 'date-fns';
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const CURRENCY_SYMBOLS: Record<CurrencyCode, string> = {
   USD: '$',
@@ -58,16 +59,48 @@ export function formatDateDisplay(
   try {
     const d = new Date(isoDate);
     if (isNaN(d.getTime())) return '—';
-    return format(d, dateFormat);
+    const year = d.getUTCFullYear();
+    const monthIndex = d.getUTCMonth();
+    const day = d.getUTCDate();
+    const mm = String(monthIndex + 1).padStart(2, '0');
+    const dd = String(day).padStart(2, '0');
+
+    if (dateFormat === 'yyyy-MM-dd') return `${year}-${mm}-${dd}`;
+    if (dateFormat === 'dd/MM/yyyy') return `${dd}/${mm}/${year}`;
+    return `${MONTHS_SHORT[monthIndex]} ${day}, ${year}`;
   } catch {
     return isoDate.slice(0, 10);
   }
 }
 
+export function formatTimestampUtc(
+  isoDate: string | null | undefined,
+  dateFormat: DateFormatOption = 'MMM d, yyyy'
+): string {
+  if (!isoDate) return '—';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '—';
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const min = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${formatDateDisplay(isoDate, dateFormat)} · ${hh}:${min} UTC`;
+}
+
+export function getUtcDayKey(isoDate: string | null | undefined): string {
+  if (!isoDate) return '';
+  const ms = Date.parse(isoDate);
+  if (!Number.isFinite(ms)) return '';
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
 export function convertRowsToCsv(headers: string[], rows: Array<Array<string | number>>): string {
   const escapeCell = (cell: string | number): string => {
-    const str = String(cell ?? '');
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    const raw = cell ?? '';
+    let str = String(raw);
+    // Guard string cells against spreadsheet formula injection (=, +, -, @, tab, CR).
+    if (typeof raw === 'string' && /^[=+\-@\t\r]/.test(str)) {
+      str = `'${str}`;
+    }
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
       return `"${str.replace(/"/g, '""')}"`;
     }
     return str;
@@ -95,5 +128,5 @@ export function triggerBrowserDownload(
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

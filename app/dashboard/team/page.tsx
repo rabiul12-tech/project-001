@@ -21,6 +21,11 @@ import { PageHeader, StatusBadge, UserAvatar } from '@/components/ui/primitives'
 import { ConfirmDialog, ModalDialog } from '@/components/ui/overlays';
 import { TeamMember, TeamRole } from '@/types';
 import { formatDateDisplay } from '@/lib/export/exporter';
+import {
+  PERMISSION_MATRIX,
+  canPerformAction,
+  getPermissionDeniedMessage,
+} from '@/lib/permissions';
 
 const ROLE_DESCRIPTIONS: Array<{
   role: TeamRole;
@@ -49,16 +54,6 @@ const ROLE_DESCRIPTIONS: Array<{
   },
 ];
 
-const PERMISSION_MATRIX = [
-  { capability: 'View Executive Overview & Deep Analytics', Owner: true, Admin: true, Analyst: true, Viewer: true },
-  { capability: 'Export CSV Reports & Print Statements', Owner: true, Admin: true, Analyst: true, Viewer: true },
-  { capability: 'Create & Edit Report Templates', Owner: true, Admin: true, Analyst: true, Viewer: false },
-  { capability: 'Create & Edit Customers / Products / Orders', Owner: true, Admin: true, Analyst: false, Viewer: false },
-  { capability: 'Issue Simulated Order Refunds', Owner: true, Admin: true, Analyst: true, Viewer: false },
-  { capability: 'Manage Demo Team Roster & Roles', Owner: true, Admin: true, Analyst: false, Viewer: false },
-  { capability: 'Import / Export Full JSON Backup & Reset Seed', Owner: true, Admin: false, Analyst: false, Viewer: false },
-];
-
 export default function TeamManagementPage() {
   const team = useAppStore((s) => s.team);
   const activities = useAppStore((s) => s.activities);
@@ -67,6 +62,8 @@ export default function TeamManagementPage() {
   const updateTeamMember = useAppStore((s) => s.updateTeamMember);
   const removeTeamMember = useAppStore((s) => s.removeTeamMember);
   const setActiveRolePreview = useAppStore((s) => s.setActiveRolePreview);
+  const addToast = useAppStore((s) => s.addToast);
+  const canManageTeam = canPerformAction(settings.activeRolePreview, 'manage_team');
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
@@ -89,6 +86,14 @@ export default function TeamManagementPage() {
   });
 
   const openCreateModal = () => {
+    if (!canManageTeam) {
+      addToast(
+        'Permission restricted',
+        getPermissionDeniedMessage(settings.activeRolePreview, 'manage_team'),
+        'warning'
+      );
+      return;
+    }
     setEditingMember(null);
     reset({
       name: '',
@@ -101,6 +106,14 @@ export default function TeamManagementPage() {
   };
 
   const openEditModal = (m: TeamMember) => {
+    if (!canManageTeam) {
+      addToast(
+        'Permission restricted',
+        getPermissionDeniedMessage(settings.activeRolePreview, 'manage_team'),
+        'warning'
+      );
+      return;
+    }
     setEditingMember(m);
     reset({
       name: m.name,
@@ -113,12 +126,21 @@ export default function TeamManagementPage() {
   };
 
   const onSubmitForm = (values: TeamMemberFormValues) => {
+    if (!canManageTeam) {
+      addToast(
+        'Permission restricted',
+        getPermissionDeniedMessage(settings.activeRolePreview, 'manage_team'),
+        'warning'
+      );
+      return;
+    }
     if (editingMember) {
       updateTeamMember(editingMember.id, values);
+      setModalOpen(false);
     } else {
-      addTeamMember(values);
+      const created = addTeamMember(values);
+      if (created) setModalOpen(false);
     }
-    setModalOpen(false);
   };
 
   return (
@@ -130,8 +152,10 @@ export default function TeamManagementPage() {
         actions={
           <button
             type="button"
+            disabled={!canManageTeam}
+            title={!canManageTeam ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_team') : undefined}
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white transition-colors whitespace-nowrap shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <UserPlus className="w-3.5 h-3.5" />
             <span>Add Demo Member</span>
@@ -208,13 +232,13 @@ export default function TeamManagementPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm table-sticky-first">
             <thead>
-              <tr className="border-b border-line bg-surface-sunken/60 text-xs font-semibold text-ink-muted">
-                <th className="py-3 px-4">Member</th>
-                <th className="py-3 px-4">Title · Department</th>
-                <th className="py-3 px-4">Assigned Role</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4">Joined</th>
-                <th className="py-3 px-4 text-right">Actions</th>
+              <tr className="border-b border-line bg-surface-sunken/60 text-caption font-semibold text-ink-muted">
+                <th scope="col" className="py-3 px-4">Member</th>
+                <th scope="col" className="py-3 px-4">Title · Department</th>
+                <th scope="col" className="py-3 px-4">Assigned Role</th>
+                <th scope="col" className="py-3 px-4">Status</th>
+                <th scope="col" className="py-3 px-4">Joined</th>
+                <th scope="col" className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line-subtle">
@@ -240,11 +264,13 @@ export default function TeamManagementPage() {
                   <td className="py-4 px-4">
                     <select
                       aria-label={`Assign role for ${member.name}`}
+                      disabled={!canManageTeam}
+                      title={!canManageTeam ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_team') : undefined}
                       value={member.role}
                       onChange={(e) =>
                         updateTeamMember(member.id, { role: e.target.value as TeamRole })
                       }
-                      className="px-3 py-1 rounded-lg bg-surface-sunken border border-line tabular-nums text-xs font-semibold text-accent"
+                      className="px-3 py-1 rounded-lg bg-surface-sunken border border-line tabular-nums text-xs font-semibold text-accent disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <option value="Owner">Owner</option>
                       <option value="Admin">Admin</option>
@@ -262,18 +288,22 @@ export default function TeamManagementPage() {
                     <div className="inline-flex items-center gap-1">
                       <button
                         type="button"
+                        disabled={!canManageTeam}
+                        title={!canManageTeam ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_team') : undefined}
                         onClick={() => openEditModal(member)}
                         aria-label={`Edit ${member.name}`}
-                        className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover"
+                        className="p-2 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
                       {team.length > 1 && (
                         <button
                           type="button"
+                          disabled={!canManageTeam}
+                          title={!canManageTeam ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_team') : undefined}
                           onClick={() => setRemoveTarget(member)}
                           aria-label={`Remove ${member.name}`}
-                          className="p-2 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-500/10"
+                          className="p-2 rounded-lg text-ink-muted hover:text-red-600 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -302,12 +332,12 @@ export default function TeamManagementPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm table-sticky-first">
               <thead>
-                <tr className="border-b border-line text-xs font-semibold text-ink-muted">
-                  <th className="py-3 pr-4">Workspace Capability</th>
-                  <th className="py-3 px-3 text-center">Owner</th>
-                  <th className="py-3 px-3 text-center">Admin</th>
-                  <th className="py-3 px-3 text-center">Analyst</th>
-                  <th className="py-3 pl-3 text-center">Viewer</th>
+                <tr className="border-b border-line text-caption font-semibold text-ink-muted">
+                  <th scope="col" className="py-3 pr-4">Workspace Capability</th>
+                  <th scope="col" className="py-3 px-3 text-center">Owner</th>
+                  <th scope="col" className="py-3 px-3 text-center">Admin</th>
+                  <th scope="col" className="py-3 px-3 text-center">Analyst</th>
+                  <th scope="col" className="py-3 pl-3 text-center">Viewer</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-subtle">
@@ -347,11 +377,11 @@ export default function TeamManagementPage() {
                 key={act.id}
                 className="p-3 rounded-xl bg-surface-sunken border border-line text-xs space-y-1"
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-ink">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-ink">
                     {act.actorName}
                   </span>
-                  <span className="tabular-nums text-xs text-accent">
+                  <span className="text-micro text-accent">
                     {act.actorRole}
                   </span>
                 </div>

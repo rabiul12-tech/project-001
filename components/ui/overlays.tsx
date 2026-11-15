@@ -1,7 +1,64 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X, AlertTriangle, Inbox, ChevronLeft, ChevronRight } from 'lucide-react';
+
+function useDialogFocusTrap(
+  open: boolean,
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  onClose: () => void
+) {
+  useEffect(() => {
+    if (!open) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const container = containerRef.current;
+    if (container) {
+      const focusable = container.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusable.length > 0) {
+        focusable[0].focus();
+      } else {
+        container.focus();
+      }
+    }
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key === 'Tab' && container) {
+        const focusable = Array.from(
+          container.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((el) => el.offsetParent !== null);
+        if (focusable.length === 0) {
+          e.preventDefault();
+          return;
+        }
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+        previouslyFocused.focus();
+      }
+    };
+  }, [open, containerRef, onClose]);
+}
 
 export function DetailDrawer({
   open,
@@ -18,14 +75,8 @@ export function DetailDrawer({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [open, onClose]);
+  const drawerRef = useRef<HTMLDivElement | null>(null);
+  useDialogFocusTrap(open, drawerRef, onClose);
 
   if (!open) return null;
 
@@ -37,16 +88,18 @@ export function DetailDrawer({
         aria-hidden="true"
       />
       <div
+        ref={drawerRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative z-10 w-full max-w-xl bg-surface-raised border-l border-line h-full flex flex-col shadow-2xl"
+        className="relative z-10 w-full max-w-xl bg-surface-raised border-l border-line h-full flex flex-col shadow-2xl focus:outline-none"
       >
         <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-line">
           <div>
-            <h2 className="text-lg font-bold text-ink">{title}</h2>
+            <h2 className="text-heading text-ink">{title}</h2>
             {subtitle && (
-              <p className="text-xs text-ink-muted mt-0.5">{subtitle}</p>
+              <p className="text-xs text-ink-muted mt-1">{subtitle}</p>
             )}
           </div>
           <button
@@ -84,14 +137,8 @@ export function ModalDialog({
   children: React.ReactNode;
   maxWidth?: string;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [open, onClose]);
+  const modalRef = useRef<HTMLDivElement | null>(null);
+  useDialogFocusTrap(open, modalRef, onClose);
 
   if (!open) return null;
 
@@ -99,16 +146,18 @@ export function ModalDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-[1px]">
       <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
       <div
+        ref={modalRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`relative z-10 w-full ${maxWidth} rounded-xl bg-surface-raised border border-line shadow-2xl overflow-hidden flex flex-col max-h-[90vh]`}
+        className={`relative z-10 w-full ${maxWidth} rounded-xl bg-surface-raised border border-line shadow-2xl overflow-hidden flex flex-col max-h-[90vh] focus:outline-none`}
       >
         <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-line">
           <div>
             <h2 className="text-heading text-ink">{title}</h2>
             {subtitle && (
-              <p className="text-xs text-ink-muted mt-0.5">{subtitle}</p>
+              <p className="text-xs text-ink-muted mt-1">{subtitle}</p>
             )}
           </div>
           <button
@@ -206,9 +255,9 @@ export function EmptyState({
       <div className="w-10 h-10 rounded-lg bg-surface-hover/70 flex items-center justify-center text-ink-muted">
         <Inbox className="w-5 h-5" />
       </div>
-      <div className="max-w-sm space-y-1">
-        <h3 className="text-sm font-semibold text-ink">{title}</h3>
-        <p className="text-xs text-ink-muted">{description}</p>
+      <div className="max-w-sm space-y-1.5">
+        <h3 className="text-subheading text-ink">{title}</h3>
+        <p className="text-sm text-ink-muted leading-relaxed">{description}</p>
       </div>
       {actionLabel && onAction && (
         <button

@@ -56,6 +56,8 @@ describe('single clock: seed, windows and runtime records', () => {
     expect(Date.parse(entry.timestamp)).toBeGreaterThanOrEqual(before);
     expect(Date.parse(entry.timestamp)).toBeLessThanOrEqual(nowMs());
 
+    // Switch back to Owner before creating an order, since Analyst is read-only for order mutations.
+    useAppStore.getState().setActiveRolePreview('Owner');
     const state = useAppStore.getState();
     const order = state.createOrder({
       customerId: state.customers[0].id,

@@ -11,6 +11,8 @@ import {
   enrichCustomersWithMetrics,
   filterOrdersByWindow,
   resolveDateWindow,
+  toCents,
+  fromCents,
 } from '@/lib/calculations/analytics';
 import {
   convertRowsToCsv,
@@ -81,20 +83,41 @@ export default function RevenueIntelligencePage() {
   );
 
   const revenueByPaymentStatus = useMemo(() => {
-    const groups: Record<PaymentStatus, { count: number; total: number; net: number }> = {
-      Paid: { count: 0, total: 0, net: 0 },
-      Refunded: { count: 0, total: 0, net: 0 },
-      Pending: { count: 0, total: 0, net: 0 },
-      Failed: { count: 0, total: 0, net: 0 },
+    const groups: Record<PaymentStatus, { count: number; totalCents: number; netCents: number }> = {
+      Paid: { count: 0, totalCents: 0, netCents: 0 },
+      Refunded: { count: 0, totalCents: 0, netCents: 0 },
+      Pending: { count: 0, totalCents: 0, netCents: 0 },
+      Failed: { count: 0, totalCents: 0, netCents: 0 },
     };
     for (const o of periodOrders) {
       groups[o.paymentStatus].count += 1;
-      groups[o.paymentStatus].total += o.totalAmount;
+      groups[o.paymentStatus].totalCents += toCents(o.totalAmount);
       if (o.paymentStatus === 'Paid' || o.paymentStatus === 'Refunded') {
-        groups[o.paymentStatus].net += Math.max(0, o.totalAmount - o.refundedAmount);
+        groups[o.paymentStatus].netCents += Math.max(0, toCents(o.totalAmount) - toCents(o.refundedAmount));
       }
     }
-    return groups;
+    return {
+      Paid: {
+        count: groups.Paid.count,
+        total: fromCents(groups.Paid.totalCents),
+        net: fromCents(groups.Paid.netCents),
+      },
+      Refunded: {
+        count: groups.Refunded.count,
+        total: fromCents(groups.Refunded.totalCents),
+        net: fromCents(groups.Refunded.netCents),
+      },
+      Pending: {
+        count: groups.Pending.count,
+        total: fromCents(groups.Pending.totalCents),
+        net: fromCents(groups.Pending.netCents),
+      },
+      Failed: {
+        count: groups.Failed.count,
+        total: fromCents(groups.Failed.totalCents),
+        net: fromCents(groups.Failed.netCents),
+      },
+    };
   }, [periodOrders]);
 
   const filteredTransactions = useMemo(() => {
@@ -133,9 +156,10 @@ export default function RevenueIntelligencePage() {
   }, [periodOrders, paymentFilter, searchQuery, sortField, sortAsc]);
 
   const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
+  const safePage = Math.min(page, totalPages);
   const paginatedTransactions = useMemo(
-    () => filteredTransactions.slice((page - 1) * pageSize, page * pageSize),
-    [filteredTransactions, page, pageSize]
+    () => filteredTransactions.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filteredTransactions, safePage, pageSize]
   );
 
   const handleSort = (field: 'orderDate' | 'totalAmount' | 'netRealized') => {
@@ -145,6 +169,7 @@ export default function RevenueIntelligencePage() {
       setSortField(field);
       setSortAsc(false);
     }
+    setPage(1);
   };
 
   const handleExportRevenueCsv = () => {
@@ -270,11 +295,21 @@ export default function RevenueIntelligencePage() {
               return (
                 <div
                   key={st}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={paymentFilter === st}
                   onClick={() => {
                     setPaymentFilter(paymentFilter === st ? 'All' : st);
                     setPage(1);
                   }}
-                  className={`p-4 rounded-xl border cursor-pointer transition-colors ${
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setPaymentFilter(paymentFilter === st ? 'All' : st);
+                      setPage(1);
+                    }
+                  }}
+                  className={`p-4 rounded-xl border cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                     paymentFilter === st
                       ? 'border-accent bg-surface-raised ring-1 ring-accent'
                       : 'border-line bg-surface-sunken/70'
@@ -282,13 +317,13 @@ export default function RevenueIntelligencePage() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <StatusBadge status={st} />
-                    <span className="text-xs tabular-nums text-ink-muted">
+                    <span className="text-caption tabular-nums text-ink-muted">
                       {info.count} orders
                     </span>
                   </div>
                   <div className="mt-2 flex items-baseline justify-between">
-                    <span className="text-xs text-ink-muted">Gross Invoice Volume:</span>
-                    <span className="text-sm font-bold tabular-nums text-ink">
+                    <span className="text-caption text-ink-muted">Gross Invoice Volume:</span>
+                    <span className="text-base font-bold tabular-nums text-ink">
                       {formatCurrency(info.total, settings.currency, settings.numberFormat)}
                     </span>
                   </div>
@@ -313,10 +348,10 @@ export default function RevenueIntelligencePage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm table-sticky-first">
               <thead>
-                <tr className="border-b border-line text-xs font-semibold text-ink-muted">
-                  <th className="pb-2">Product / SKU</th>
-                  <th className="pb-2 text-right">Units</th>
-                  <th className="pb-2 text-right">Gross Revenue</th>
+                <tr className="border-b border-line text-caption font-semibold text-ink-muted">
+                  <th scope="col" className="pb-2">Product / SKU</th>
+                  <th scope="col" className="pb-2 text-right">Units</th>
+                  <th scope="col" className="pb-2 text-right">Gross Revenue</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-subtle">
@@ -355,10 +390,10 @@ export default function RevenueIntelligencePage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm table-sticky-first">
               <thead>
-                <tr className="border-b border-line text-xs font-semibold text-ink-muted">
-                  <th className="pb-2">Account</th>
-                  <th className="pb-2 text-right">Orders</th>
-                  <th className="pb-2 text-right">Net Realized</th>
+                <tr className="border-b border-line text-caption font-semibold text-ink-muted">
+                  <th scope="col" className="pb-2">Account</th>
+                  <th scope="col" className="pb-2 text-right">Orders</th>
+                  <th scope="col" className="pb-2 text-right">Net Realized</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-subtle">
@@ -434,10 +469,10 @@ export default function RevenueIntelligencePage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm table-sticky-first">
             <thead>
-              <tr className="border-b border-line bg-surface-sunken/60 text-xs font-semibold text-ink-muted">
-                <th className="py-3 px-4">Order #</th>
-                <th className="py-3 px-4">Account</th>
-                <th className="py-3 px-4">
+              <tr className="border-b border-line bg-surface-sunken/60 text-caption font-semibold text-ink-muted">
+                <th scope="col" className="py-3 px-4">Order #</th>
+                <th scope="col" className="py-3 px-4">Account</th>
+                <th scope="col" className="py-3 px-4">
                   <button
                     type="button"
                     onClick={() => handleSort('orderDate')}
@@ -447,10 +482,10 @@ export default function RevenueIntelligencePage() {
                     <ArrowUpDown className="w-3 h-3" />
                   </button>
                 </th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Subtotal</th>
-                <th className="py-3 px-4 text-right">Discount / Tax</th>
-                <th className="py-3 px-4 text-right">
+                <th scope="col" className="py-3 px-4">Status</th>
+                <th scope="col" className="py-3 px-4 text-right">Subtotal</th>
+                <th scope="col" className="py-3 px-4 text-right">Discount / Tax</th>
+                <th scope="col" className="py-3 px-4 text-right">
                   <button
                     type="button"
                     onClick={() => handleSort('totalAmount')}
@@ -460,7 +495,7 @@ export default function RevenueIntelligencePage() {
                     <ArrowUpDown className="w-3 h-3" />
                   </button>
                 </th>
-                <th className="py-3 px-4 text-right">
+                <th scope="col" className="py-3 px-4 text-right">
                   <button
                     type="button"
                     onClick={() => handleSort('netRealized')}
@@ -470,71 +505,79 @@ export default function RevenueIntelligencePage() {
                     <ArrowUpDown className="w-3 h-3" />
                   </button>
                 </th>
-                <th className="py-3 px-4 text-right">Breakdown</th>
+                <th scope="col" className="py-3 px-4 text-right">Breakdown</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line-subtle">
-              {paginatedTransactions.map((ord) => {
-                const netRealized =
-                  ord.paymentStatus === 'Paid' || ord.paymentStatus === 'Refunded'
-                    ? Math.max(0, ord.totalAmount - ord.refundedAmount)
-                    : 0;
-                return (
-                  <tr
-                    key={ord.id}
-                    onClick={() => setSelectedOrder(ord)}
-                    className="hover:bg-surface-hover/60 cursor-pointer transition-colors"
-                  >
-                    <td className="py-3 px-4 tabular-nums font-semibold text-accent whitespace-nowrap">
-                      {ord.orderNumber}
-                    </td>
-                    <td className="py-3 px-4 max-w-[160px]">
-                      <div className="font-medium text-ink truncate" title={ord.customerCompany}>
-                        {ord.customerCompany}
-                      </div>
-                      <div className="text-xs text-ink-muted">{ord.salesChannel}</div>
-                    </td>
-                    <td className="py-3 px-4 tabular-nums text-ink-muted whitespace-nowrap">
-                      {formatDateDisplay(ord.orderDate, settings.dateFormat)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <StatusBadge status={ord.paymentStatus} />
-                    </td>
-                    <td className="py-3 px-4 text-right tabular-nums text-ink-secondary">
-                      {formatCurrency(ord.subtotal, settings.currency, settings.numberFormat)}
-                    </td>
-                    <td className="py-3 px-4 text-right tabular-nums text-ink-muted">
-                      −{formatCurrency(ord.discountAmount, settings.currency, settings.numberFormat)} / +
-                      {formatCurrency(ord.taxAmount, settings.currency, settings.numberFormat)}
-                    </td>
-                    <td className="py-3 px-4 text-right tabular-nums text-ink-secondary">
-                      {formatCurrency(ord.totalAmount, settings.currency, settings.numberFormat)}
-                    </td>
-                    <td className="py-3 px-4 text-right tabular-nums font-semibold text-success">
-                      {formatCurrency(netRealized, settings.currency, settings.numberFormat)}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedOrder(ord);
-                        }}
-                        className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-surface-sunken hover:bg-blue-600 hover:text-white text-ink-secondary transition-colors"
-                      >
-                        <Eye className="w-3 h-3" />
-                        <span>Inspect</span>
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {paginatedTransactions.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="py-8 px-4 text-center text-xs text-ink-muted">
+                    No transactions match the current filters in this reporting window.
+                  </td>
+                </tr>
+              ) : (
+                paginatedTransactions.map((ord) => {
+                  const netRealized =
+                    ord.paymentStatus === 'Paid' || ord.paymentStatus === 'Refunded'
+                      ? fromCents(Math.max(0, toCents(ord.totalAmount) - toCents(ord.refundedAmount)))
+                      : 0;
+                  return (
+                    <tr
+                      key={ord.id}
+                      onClick={() => setSelectedOrder(ord)}
+                      className="hover:bg-surface-hover/60 cursor-pointer transition-colors"
+                    >
+                      <td className="py-3 px-4 tabular-nums font-semibold text-accent whitespace-nowrap">
+                        {ord.orderNumber}
+                      </td>
+                      <td className="py-3 px-4 max-w-[160px]">
+                        <div className="font-medium text-ink truncate" title={ord.customerCompany}>
+                          {ord.customerCompany}
+                        </div>
+                        <div className="text-xs text-ink-muted">{ord.salesChannel}</div>
+                      </td>
+                      <td className="py-3 px-4 tabular-nums text-ink-muted whitespace-nowrap">
+                        {formatDateDisplay(ord.orderDate, settings.dateFormat)}
+                      </td>
+                      <td className="py-3 px-4">
+                        <StatusBadge status={ord.paymentStatus} />
+                      </td>
+                      <td className="py-3 px-4 text-right tabular-nums text-ink-secondary">
+                        {formatCurrency(ord.subtotal, settings.currency, settings.numberFormat)}
+                      </td>
+                      <td className="py-3 px-4 text-right tabular-nums text-ink-muted">
+                        −{formatCurrency(ord.discountAmount, settings.currency, settings.numberFormat)} / +
+                        {formatCurrency(ord.taxAmount, settings.currency, settings.numberFormat)}
+                      </td>
+                      <td className="py-3 px-4 text-right tabular-nums text-ink-secondary">
+                        {formatCurrency(ord.totalAmount, settings.currency, settings.numberFormat)}
+                      </td>
+                      <td className="py-3 px-4 text-right tabular-nums font-semibold text-success">
+                        {formatCurrency(netRealized, settings.currency, settings.numberFormat)}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedOrder(ord);
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-md bg-surface-sunken hover:bg-blue-600 hover:text-white text-ink-secondary transition-colors"
+                        >
+                          <Eye className="w-3 h-3" />
+                          <span>Inspect</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
 
         <Pagination
-          currentPage={page}
+          currentPage={safePage}
           totalPages={totalPages}
           totalItems={filteredTransactions.length}
           pageSize={pageSize}
@@ -559,36 +602,36 @@ export default function RevenueIntelligencePage() {
       >
         {selectedOrder && (
           <div className="space-y-6 text-xs">
-            <div className="grid grid-cols-2 gap-3 p-4 rounded-xl bg-surface-sunken border border-line">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-surface-sunken border border-line">
               <div>
-                <div className="text-ink-muted">Customer Account</div>
-                <div className="font-bold text-ink mt-1">
+                <div className="text-caption text-ink-muted">Customer Account</div>
+                <div className="text-sm font-semibold text-ink mt-1">
                   {selectedOrder.customerCompany}
                 </div>
-                <div className="text-ink-muted">{selectedOrder.customerEmail}</div>
+                <div className="text-xs text-ink-muted">{selectedOrder.customerEmail}</div>
               </div>
               <div>
-                <div className="text-ink-muted">Settlement & Channel</div>
+                <div className="text-caption text-ink-muted">Settlement & Channel</div>
                 <div className="mt-1 flex items-center gap-2">
                   <StatusBadge status={selectedOrder.paymentStatus} />
                   <StatusBadge status={selectedOrder.fulfillmentStatus} />
                 </div>
-                <div className="text-ink-muted mt-1">{selectedOrder.salesChannel}</div>
+                <div className="text-xs text-ink-muted mt-1">{selectedOrder.salesChannel}</div>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <h3 className="font-bold text-ink">
+            <div className="space-y-2.5">
+              <h3 className="text-subheading text-ink">
                 Locked Line-Item Schedule
               </h3>
               <div className="rounded-xl border border-line overflow-hidden">
-                <table className="w-full text-left border-collapse table-sticky-first">
+                <table className="w-full text-left border-collapse text-sm table-sticky-first">
                   <thead>
-                    <tr className="border-b border-line bg-surface-sunken text-xs text-ink-muted">
-                      <th className="py-2 px-3">SKU / Product</th>
-                      <th className="py-2 px-3 text-right">Qty</th>
-                      <th className="py-2 px-3 text-right">Historical Unit Price</th>
-                      <th className="py-2 px-3 text-right">Subtotal</th>
+                    <tr className="border-b border-line bg-surface-sunken text-caption font-medium text-ink-muted">
+                      <th scope="col" className="py-2 px-3">SKU / Product</th>
+                      <th scope="col" className="py-2 px-3 text-right">Qty</th>
+                      <th scope="col" className="py-2 px-3 text-right">Historical Unit Price</th>
+                      <th scope="col" className="py-2 px-3 text-right">Subtotal</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line-subtle">
@@ -617,7 +660,7 @@ export default function RevenueIntelligencePage() {
             </div>
 
             <div className="p-4 rounded-xl bg-surface-sunken border border-line space-y-3">
-              <h3 className="font-bold text-ink">
+              <h3 className="text-subheading text-ink">
                 Accounting Reconciliation Formula
               </h3>
               <div className="flex justify-between">
