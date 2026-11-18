@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Search,
@@ -23,11 +23,89 @@ import {
   X,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useWorkspaceAction } from '@/hooks/useWorkspaceAction';
 import { formatCurrency, triggerBrowserDownload } from '@/lib/export/exporter';
 import { canPerformAction, getPermissionDeniedMessage } from '@/lib/permissions';
 import { ConfirmDialog } from '@/components/ui/overlays';
 
-export function CommandPalette() {
+export function LayoutDialog({
+  label,
+  onDismiss,
+  returnFocusRef,
+  initialFocusRef,
+  className,
+  children,
+}: {
+  label: string;
+  onDismiss: () => void;
+  returnFocusRef: React.RefObject<HTMLButtonElement | null>;
+  initialFocusRef?: React.RefObject<HTMLInputElement | null>;
+  className: string;
+  children: React.ReactNode;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    const returnFocus = returnFocusRef.current;
+    dialog.showModal();
+    initialFocusRef?.current?.focus({ preventScroll: true });
+
+    return () => {
+      dialog.close();
+      if (document.activeElement === document.body) {
+        returnFocus?.focus({ preventScroll: true });
+      }
+    };
+  }, [initialFocusRef, returnFocusRef]);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-label={label}
+      aria-modal="true"
+      onCancel={(event) => {
+        event.preventDefault();
+        onDismiss();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onDismiss();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Tab') return;
+
+        const controls = Array.from(
+          event.currentTarget.querySelectorAll<HTMLElement>('a[href], button, input, select')
+        ).filter(
+          (element) =>
+            element.tabIndex >= 0 &&
+            !element.matches(':disabled') &&
+            element.getClientRects().length > 0
+        );
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        const from = event.shiftKey ? first : last;
+        const to = event.shiftKey ? last : first;
+
+        if (event.target === from && to) {
+          event.preventDefault();
+          to.focus();
+        }
+      }}
+      className={`fixed inset-0 m-0 h-full max-h-none w-full max-w-none overflow-hidden bg-transparent text-ink open:flex backdrop:bg-slate-950/60 backdrop:backdrop-blur-[1px] ${className}`}
+    >
+      {children}
+    </dialog>
+  );
+}
+
+export function CommandPalette({
+  triggerRef,
+}: {
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
+}) {
   const router = useRouter();
   const open = useAppStore((s) => s.commandPaletteOpen);
   const setOpen = useAppStore((s) => s.setCommandPaletteOpen);
@@ -35,14 +113,15 @@ export function CommandPalette() {
   const orders = useAppStore((s) => s.orders);
   const products = useAppStore((s) => s.products);
   const settings = useAppStore((s) => s.settings);
-  const toggleTheme = useAppStore((s) => s.toggleTheme);
+  const toggleTheme = useWorkspaceAction((s) => s.toggleTheme);
   const getExportSnapshot = useAppStore((s) => s.getExportSnapshot);
-  const resetDemoData = useAppStore((s) => s.resetDemoData);
+  const resetDemoData = useWorkspaceAction((s) => s.resetDemoData);
   const addToast = useAppStore((s) => s.addToast);
 
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const canManageBackups = canPerformAction(settings.activeRolePreview, 'manage_backups_and_reset');
 
@@ -55,6 +134,8 @@ export function CommandPalette() {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        if (!open && document.querySelector('dialog:modal, [role="dialog"][aria-modal="true"]')) return;
+
         e.preventDefault();
         if (open) {
           closePalette();
@@ -62,8 +143,6 @@ export function CommandPalette() {
           setActiveIndex(0);
           setOpen(true);
         }
-      } else if (e.key === 'Escape' && open) {
-        closePalette();
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -170,39 +249,6 @@ export function CommandPalette() {
     setConfirmResetOpen(true);
   }, [canManageBackups, settings.activeRolePreview, addToast, closePalette]);
 
-  const selectableActions = useMemo(() => {
-    const list: Array<() => void> = [];
-    for (const item of filteredNav) {
-      list.push(() => navigateTo(item.href));
-    }
-    for (const c of matchedCustomers) {
-      list.push(() => navigateTo(`/dashboard/customers?search=${encodeURIComponent(c.company)}`));
-    }
-    for (const o of matchedOrders) {
-      list.push(() => navigateTo(`/dashboard/orders?search=${encodeURIComponent(o.orderNumber)}`));
-    }
-    for (const p of matchedProducts) {
-      list.push(() => navigateTo(`/dashboard/products?search=${encodeURIComponent(p.sku)}`));
-    }
-    list.push(() => {
-      toggleTheme();
-      closePalette();
-    });
-    list.push(() => handleExportBackup());
-    list.push(() => handleRequestReset());
-    return list;
-  }, [
-    filteredNav,
-    matchedCustomers,
-    matchedOrders,
-    matchedProducts,
-    navigateTo,
-    toggleTheme,
-    closePalette,
-    handleExportBackup,
-    handleRequestReset,
-  ]);
-
   if (!open) {
     return (
       <ConfirmDialog
@@ -221,19 +267,58 @@ export function CommandPalette() {
   const ordOffset = custOffset + matchedCustomers.length;
   const prodOffset = ordOffset + matchedOrders.length;
   const sysOffset = prodOffset + matchedProducts.length;
+  const systemActions = [
+    {
+      id: 'theme',
+      label: `Switch to ${settings.theme === 'dark' ? 'Light' : 'Dark'} Mode`,
+      badge: 'Theme',
+      icon: settings.theme === 'dark'
+        ? <Sun className="w-4 h-4 text-amber-400" aria-hidden="true" />
+        : <Moon className="w-4 h-4 text-ink-secondary" aria-hidden="true" />,
+      run: () => {
+        void toggleTheme();
+        closePalette();
+      },
+      disabled: false,
+    },
+    {
+      id: 'backup',
+      label: 'Export Full Workspace JSON Backup',
+      badge: 'JSON',
+      icon: <Download className="w-4 h-4 text-success" aria-hidden="true" />,
+      run: handleExportBackup,
+      disabled: !canManageBackups,
+    },
+    {
+      id: 'reset',
+      label: 'Reset Workspace to Default Seed Data',
+      badge: 'Reset',
+      icon: <RotateCcw className="w-4 h-4" aria-hidden="true" />,
+      run: handleRequestReset,
+      disabled: !canManageBackups,
+    },
+  ].filter(({ label, badge }) => `${label} ${badge}`.toLowerCase().includes(q));
+  const enabledSystemActions = systemActions.filter(({ disabled }) => !disabled);
+  const selectableActions = [
+    ...filteredNav.map((item) => () => navigateTo(item.href)),
+    ...matchedCustomers.map((c) => () => navigateTo(`/dashboard/customers?search=${encodeURIComponent(c.company)}`)),
+    ...matchedOrders.map((o) => () => navigateTo(`/dashboard/orders?search=${encodeURIComponent(o.orderNumber)}`)),
+    ...matchedProducts.map((p) => () => navigateTo(`/dashboard/products?search=${encodeURIComponent(p.sku)}`)),
+    ...enabledSystemActions.map(({ run }) => run),
+  ];
   const clampedIndex =
     selectableActions.length > 0
       ? Math.min(activeIndex, selectableActions.length - 1)
       : -1;
 
-  const handleDialogKeyDown = (e: React.KeyboardEvent) => {
-    if (selectableActions.length === 0) return;
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.nativeEvent.isComposing || selectableActions.length === 0) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActiveIndex((prev) => (prev + 1) % selectableActions.length);
+      setActiveIndex((clampedIndex + 1) % selectableActions.length);
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActiveIndex((prev) => (prev - 1 + selectableActions.length) % selectableActions.length);
+      setActiveIndex((clampedIndex - 1 + selectableActions.length) % selectableActions.length);
     } else if (e.key === 'Enter' && clampedIndex >= 0) {
       e.preventDefault();
       selectableActions[clampedIndex]?.();
@@ -241,21 +326,23 @@ export function CommandPalette() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-24 p-4 bg-slate-950/60 backdrop-blur-[1px]">
-      <div className="fixed inset-0" onClick={closePalette} aria-hidden="true" />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Command Palette"
-        onKeyDown={handleDialogKeyDown}
-        className="relative z-10 w-full max-w-xl rounded-xl bg-surface-raised border border-line shadow-2xl overflow-hidden flex flex-col max-h-[75vh]"
-      >
+    <LayoutDialog
+      label="Command Palette"
+      onDismiss={closePalette}
+      returnFocusRef={triggerRef}
+      initialFocusRef={searchInputRef}
+      className="items-start justify-center p-4 pt-16 sm:pt-24"
+    >
+      <div className="relative w-full max-w-xl rounded-xl bg-surface-raised border border-line shadow-2xl overflow-hidden flex flex-col max-h-[75vh]">
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-line">
           <Search className="w-4 h-4 text-ink-muted shrink-0" />
           <input
+            ref={searchInputRef}
             type="text"
-            autoFocus
+            name="workspaceSearch"
+            aria-label="Search workspace"
             value={query}
+            onKeyDown={handleSearchKeyDown}
             onChange={(e) => {
               setQuery(e.target.value);
               setActiveIndex(0);
@@ -273,7 +360,13 @@ export function CommandPalette() {
           </button>
         </div>
 
-        <div className="overflow-y-auto p-2 space-y-4">
+        <div className="overflow-y-auto overscroll-contain p-2 space-y-4">
+          {sysOffset === 0 && systemActions.length === 0 && (
+            <p role="status" className="px-3 py-2 text-sm text-ink-muted">
+              No matching results.
+            </p>
+          )}
+
           {filteredNav.length > 0 && (
             <div>
               <div className="px-3 py-1.5 text-micro text-ink-muted">
@@ -415,79 +508,41 @@ export function CommandPalette() {
             </div>
           )}
 
-          <div>
-            <div className="px-3 py-1.5 text-micro text-ink-muted">
-              System Actions
+          {systemActions.length > 0 && (
+            <div>
+              <div className="px-3 py-1.5 text-micro text-ink-muted">
+                System Actions
+              </div>
+              <div className="space-y-0.5">
+                {systemActions.map((action) => {
+                  const index = sysOffset + enabledSystemActions.indexOf(action);
+                  const isActive = !action.disabled && index === clampedIndex;
+                  const isReset = action.id === 'reset';
+                  const colors = isReset
+                    ? `text-danger ${isActive ? 'bg-red-500/15' : 'hover:bg-red-500/10'}`
+                    : isActive ? 'bg-surface-hover text-ink' : 'text-ink-secondary hover:bg-surface-hover';
+                  return (
+                    <button
+                      key={action.id}
+                      type="button"
+                      disabled={action.disabled}
+                      title={action.disabled ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_backups_and_reset') : undefined}
+                      onClick={action.run}
+                      onMouseEnter={() => { if (!action.disabled) setActiveIndex(index); }}
+                      onFocus={() => setActiveIndex(index)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${colors}`}
+                    >
+                      <span className="flex items-center gap-2.5">
+                        {action.icon}
+                        <span>{action.label}</span>
+                      </span>
+                      <span className={`text-xs tabular-nums ${isReset ? '' : 'text-ink-muted'}`}>{action.badge}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div className="space-y-0.5">
-              <button
-                type="button"
-                onClick={() => {
-                  toggleTheme();
-                  closePalette();
-                }}
-                onMouseEnter={() => setActiveIndex(sysOffset)}
-                onFocus={() => setActiveIndex(sysOffset)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  clampedIndex === sysOffset
-                    ? 'bg-surface-hover text-ink'
-                    : 'text-ink-secondary hover:bg-surface-hover'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  {settings.theme === 'dark' ? (
-                    <Sun className="w-4 h-4 text-amber-400" />
-                  ) : (
-                    <Moon className="w-4 h-4 text-ink-secondary" />
-                  )}
-                  <span>
-                    Switch to {settings.theme === 'dark' ? 'Light' : 'Dark'} Mode
-                  </span>
-                </span>
-                <span className="text-xs text-ink-muted tabular-nums">Theme</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={!canManageBackups}
-                title={!canManageBackups ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_backups_and_reset') : undefined}
-                onClick={handleExportBackup}
-                onMouseEnter={() => setActiveIndex(sysOffset + 1)}
-                onFocus={() => setActiveIndex(sysOffset + 1)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                  clampedIndex === sysOffset + 1
-                    ? 'bg-surface-hover text-ink'
-                    : 'text-ink-secondary hover:bg-surface-hover'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <Download className="w-4 h-4 text-success" />
-                  <span>Export Full Workspace JSON Backup</span>
-                </span>
-                <span className="text-xs text-ink-muted tabular-nums">JSON</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={!canManageBackups}
-                title={!canManageBackups ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_backups_and_reset') : undefined}
-                onClick={handleRequestReset}
-                onMouseEnter={() => setActiveIndex(sysOffset + 2)}
-                onFocus={() => setActiveIndex(sysOffset + 2)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-danger transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                  clampedIndex === sysOffset + 2
-                    ? 'bg-red-500/15'
-                    : 'hover:bg-red-500/10'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <RotateCcw className="w-4 h-4" />
-                  <span>Reset Workspace to Default Seed Data</span>
-                </span>
-                <span className="text-xs tabular-nums">Reset</span>
-              </button>
-            </div>
-          </div>
+          )}
         </div>
 
         <div className="px-4 py-2.5 border-t border-line bg-surface-sunken flex items-center justify-between text-xs text-ink-muted">
@@ -495,6 +550,6 @@ export function CommandPalette() {
           <span className="tabular-nums">ESC to close</span>
         </div>
       </div>
-    </div>
+    </LayoutDialog>
   );
 }

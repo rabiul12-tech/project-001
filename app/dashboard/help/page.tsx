@@ -24,7 +24,7 @@ export default function HelpDocumentationPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 text-sm leading-relaxed">
         {/* Main Documentation Content */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="min-w-0 lg:col-span-8 space-y-6">
           <section className="p-6 rounded-xl bg-surface-raised border border-line space-y-3">
             <div className="flex items-center gap-2 text-micro text-accent">
               <BookOpen className="w-4 h-4" />
@@ -66,7 +66,7 @@ export default function HelpDocumentationPage() {
             </h2>
             <ul className="space-y-2 text-ink-secondary list-disc pl-6">
               <li>
-                <strong>Gross Revenue:</strong> Sum of line-item subtotals (before commercial discounts and tax) across settled (<code>Paid</code> and <code>Refunded</code>) orders. Uncollected <code>Pending</code> and <code>Failed/Canceled</code> orders are excluded from realized revenue and tracked separately.
+                <strong>Gross Revenue:</strong> Sum of line-item subtotals before discounts and tax for <code>Paid</code> and <code>Refunded</code> orders with non-canceled fulfillment. Canceled invoices retain their recorded payment and refunds in the order ledger.
               </li>
               <li>
                 <strong>Net Realized Revenue:</strong> Calculated as <code>(Subtotal − Discount + Tax) − Refunded Amount</code> across eligible orders. Refunded amounts are never double-counted.
@@ -89,11 +89,11 @@ export default function HelpDocumentationPage() {
               How Your Changes Are Stored
             </h2>
             <p className="text-ink-secondary">
-              On first visit, Aurelix runs a deterministic Mulberry32 seed generator (`seed: 20261113`) and persists the workspace under key <code>aurelix_analytics_v1_store</code> in your browser&apos;s LocalStorage. All subsequent edits survive page refreshes without overwriting your changes.
+              On first visit, Aurelix runs a deterministic Mulberry32 seed generator (`seed: 20261113`) and persists the workspace under key <code className="[overflow-wrap:anywhere]">aurelix_analytics_v1_store</code> in your browser&apos;s LocalStorage. All subsequent edits survive page refreshes without overwriting your changes.
             </p>
             <ul className="space-y-2 text-ink-secondary list-disc pl-6">
               <li>
-                <strong>Corrupt Data Recovery:</strong> If stored JSON is manually edited and fails Zod schema validation on startup, Aurelix preserves a snapshot under <code>aurelix_analytics_v1_corrupt_snapshot</code>, restores clean seed data, and notifies you with an alert banner.
+                <strong>Corrupt Data Recovery:</strong> Aurelix saves the original stored value under <code className="[overflow-wrap:anywhere]">aurelix_analytics_v1_corrupt_snapshot</code> before restoring demo data. If an earlier snapshot occupies the slot or recovery cannot be saved, Aurelix protects the original stored value and shows a recovery alert.
               </li>
               <li>
                 <strong>Storage Quota Limits:</strong> Browser LocalStorage typically provides ~5MB per origin. Avoid importing huge external files. You can export a full JSON backup or reset to default seed data anytime in <Link href="/dashboard/settings" className="text-accent hover:underline">Settings</Link>.

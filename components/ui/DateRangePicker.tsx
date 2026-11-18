@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { Calendar } from 'lucide-react';
 import { DateRangePreset } from '@/types';
 import { useAppStore } from '@/stores/useAppStore';
@@ -29,35 +29,34 @@ export function DateRangePicker({
   const [endDraft, setEndInput] = useState<string | null>(null);
   const [rangeError, setRangeError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const customTriggerRef = useRef<HTMLButtonElement>(null);
+  const formId = useId();
 
   const startInput = startDraft ?? customStartDate;
   const endInput = endDraft ?? customEndDate;
 
   useEffect(() => {
     if (!showCustomPopover) return;
-    const handlePointerDown = (e: MouseEvent) => {
+    const handlePointerDown = (e: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setShowCustomPopover(false);
       }
     };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setShowCustomPopover(false);
-      }
-    };
-    document.addEventListener('mousedown', handlePointerDown);
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
   }, [showCustomPopover]);
+
+  const closeCustomPopover = () => {
+    setShowCustomPopover(false);
+    customTriggerRef.current?.focus({ preventScroll: true });
+  };
 
   const handlePresetClick = (preset: DateRangePreset) => {
     setRangeError(null);
     if (preset === 'custom') {
+      setStartInput(null);
+      setEndInput(null);
       setShowCustomPopover((v) => !v);
-      setDatePreset('custom', startInput, endInput);
     } else {
       setShowCustomPopover(false);
       setDatePreset(preset);
@@ -76,7 +75,7 @@ export function DateRangePicker({
     }
     setRangeError(null);
     setDatePreset('custom', startInput, endInput);
-    setShowCustomPopover(false);
+    closeCustomPopover();
   };
 
   const alignClass =
@@ -87,22 +86,40 @@ export function DateRangePicker({
         : 'right-0';
 
   return (
-    <div ref={containerRef} className="relative flex items-center">
+    <div
+      ref={containerRef}
+      className="relative flex min-w-0 items-center"
+      onBlur={(event) => {
+        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+          setShowCustomPopover(false);
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && showCustomPopover) {
+          event.preventDefault();
+          event.stopPropagation();
+          closeCustomPopover();
+        }
+      }}
+    >
       <div
         role="group"
         aria-label="Date range filter"
         className="flex flex-wrap items-center gap-1 p-1 rounded-lg bg-surface-sunken border border-line"
       >
-        <Calendar className="w-3.5 h-3.5 text-ink-muted ml-2 mr-1 hidden sm:block shrink-0" />
+        <Calendar className="ml-2 mr-1 hidden size-3.5 shrink-0 text-ink-muted sm:block" aria-hidden="true" />
         {PRESET_OPTIONS.map((opt) => {
           const active = datePreset === opt.value;
           return (
             <button
               key={opt.value}
+              ref={opt.value === 'custom' ? customTriggerRef : undefined}
               type="button"
+              aria-pressed={active}
+              aria-controls={opt.value === 'custom' && showCustomPopover ? formId : undefined}
               aria-expanded={opt.value === 'custom' ? showCustomPopover : undefined}
               onClick={() => handlePresetClick(opt.value)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 ${
+              className={`min-h-9 shrink-0 whitespace-nowrap rounded-md px-2.5 text-caption font-medium transition-colors sm:min-h-8 ${
                 active
                   ? 'bg-surface-raised text-ink shadow-xs ring-1 ring-line'
                   : 'text-ink-muted hover:text-ink'
@@ -116,14 +133,16 @@ export function DateRangePicker({
 
       {showCustomPopover && (
         <form
+          id={formId}
           onSubmit={applyCustomRange}
+          noValidate
           className={`absolute ${alignClass} top-full mt-2 z-40 w-[min(18rem,calc(100vw-2rem))] p-4 rounded-xl bg-surface-raised border border-line shadow-xl space-y-3`}
         >
-          <div className="text-xs font-semibold text-ink">
+          <div className="text-sm font-semibold text-ink">
             Custom Date Window
           </div>
           {rangeError && (
-            <div className="text-xs text-danger bg-red-500/10 border border-red-500/20 rounded-lg px-2.5 py-1.5">
+            <div role="alert" className="text-caption text-danger bg-danger/10 border border-danger/20 rounded-lg px-2.5 py-1.5">
               {rangeError}
             </div>
           )}
@@ -132,6 +151,7 @@ export function DateRangePicker({
               Start Date
               <input
                 type="date"
+                name="startDate"
                 value={startInput}
                 max={endInput}
                 onChange={(e) => {
@@ -145,6 +165,7 @@ export function DateRangePicker({
               End Date
               <input
                 type="date"
+                name="endDate"
                 value={endInput}
                 min={startInput}
                 onChange={(e) => {
@@ -158,7 +179,7 @@ export function DateRangePicker({
           <div className="flex items-center justify-end gap-2 pt-1">
             <button
               type="button"
-              onClick={() => setShowCustomPopover(false)}
+              onClick={closeCustomPopover}
               className="px-3 py-2 text-xs rounded-lg text-ink-muted hover:bg-surface-hover"
             >
               Close

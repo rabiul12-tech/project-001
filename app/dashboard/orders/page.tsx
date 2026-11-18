@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useMemo, useState } from 'react';
+import React, { startTransition, Suspense, useMemo, useOptimistic, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Plus,
@@ -13,7 +13,9 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
-import { calculateOrderTotalsFromItems, toCents, fromCents } from '@/lib/calculations/analytics';
+import { useWorkspaceAction } from '@/hooks/useWorkspaceAction';
+import { calculateOrderTotalsFromItems, fromCents, isRealizedOrder, realizedNetCents } from '@/lib/calculations/analytics';
+import { canRefundOrder, getOrderTransitionError } from '@/lib/orders';
 import { canPerformAction, getPermissionDeniedMessage } from '@/lib/permissions';
 import {
   convertRowsToCsv,
@@ -45,15 +47,16 @@ function OrdersManagementContent() {
   const orders = useAppStore((s) => s.orders);
   const customers = useAppStore((s) => s.customers);
   const products = useAppStore((s) => s.products);
+  const orderableProducts = useMemo(() => products.filter((product) => product.status !== 'Archived'), [products]);
   const settings = useAppStore((s) => s.settings);
-  const createOrder = useAppStore((s) => s.createOrder);
-  const updateOrderStatus = useAppStore((s) => s.updateOrderStatus);
-  const cancelOrder = useAppStore((s) => s.cancelOrder);
-  const refundOrder = useAppStore((s) => s.refundOrder);
-  const bulkUpdateOrderStatus = useAppStore((s) => s.bulkUpdateOrderStatus);
+  const createOrder = useWorkspaceAction((s) => s.createOrder);
+  const updateOrderStatus = useWorkspaceAction((s) => s.updateOrderStatus);
+  const cancelOrder = useWorkspaceAction((s) => s.cancelOrder);
+  const refundOrder = useWorkspaceAction((s) => s.refundOrder);
+  const bulkUpdateOrderStatus = useWorkspaceAction((s) => s.bulkUpdateOrderStatus);
   const addToast = useAppStore((s) => s.addToast);
 
-  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
+  const [searchQuery, setSearchQuery] = useOptimistic(searchParams.get('search') ?? '');
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatus | 'All'>('All');
   const [fulfillmentFilter, setFulfillmentFilter] = useState<FulfillmentStatus | 'All'>('All');
   const [channelFilter, setChannelFilter] = useState<SalesChannel | 'All'>('All');
@@ -65,6 +68,7 @@ function OrdersManagementContent() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [drawerOrder, setDrawerOrder] = useState<Order | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(() => searchParams.get('action') === 'new');
+  const [creatingOrder, setCreatingOrder] = useState(false);
   const [refundTargetOrder, setRefundTargetOrder] = useState<Order | null>(null);
   const [refundCustomAmount, setRefundCustomAmount] = useState<string>('');
   const [refundError, setRefundError] = useState<string | null>(null);
@@ -81,8 +85,9 @@ function OrdersManagementContent() {
   const [newDiscount, setNewDiscount] = useState<number>(0);
   const [newTaxRatePercent, setNewTaxRatePercent] = useState<number>(8.5);
   const [newNotes, setNewNotes] = useState<string>('');
-  const [newItems, setNewItems] = useState<Array<{ productId: string; quantity: number }>>([
-    { productId: products[0]?.id || '', quantity: 1 },
+  const nextLineItemId = useRef(1);
+  const [newItems, setNewItems] = useState<Array<{ id: number; productId: string; quantity: number }>>([
+    { id: 0, productId: orderableProducts[0]?.id ?? '', quantity: 1 },
   ]);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -136,8 +141,7 @@ function OrdersManagementContent() {
   // Live preview of Create Order calculation
   const draftCalculation = useMemo(() => {
     const pricedItems = newItems.map((it) => {
-      const resolvedProductId = it.productId || products[0]?.id || '';
-      const p = products.find((prod) => prod.id === resolvedProductId);
+      const p = orderableProducts.find((prod) => prod.id === it.productId);
       return {
         quantity: Math.max(1, Number(it.quantity) || 1),
         unitPrice: p ? p.unitPrice : 0,
@@ -148,10 +152,11 @@ function OrdersManagementContent() {
       Number(newDiscount) || 0,
       (Number.isFinite(Number(newTaxRatePercent)) ? Math.max(0, Number(newTaxRatePercent)) : 0) / 100
     );
-  }, [newItems, products, newDiscount, newTaxRatePercent]);
+  }, [newItems, orderableProducts, newDiscount, newTaxRatePercent]);
 
-  const handleCreateOrderSubmit = (e: React.FormEvent) => {
+  const handleCreateOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (creatingOrder) return;
     setFormError(null);
     if (!canMutateOrders) {
       setFormError(getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_orders'));
@@ -161,12 +166,10 @@ function OrdersManagementContent() {
       setFormError('Please select a customer account.');
       return;
     }
-    const normalizedItems = newItems.map((i) => ({
-      productId: i.productId || products[0]?.id || '',
-      quantity: i.quantity,
-    }));
-    if (normalizedItems.length === 0 || normalizedItems.some((i) => !i.productId || i.quantity < 1)) {
-      setFormError('Please configure valid products and quantities.');
+    if (newItems.length === 0 || newItems.some((i) =>
+      i.quantity < 1 || !orderableProducts.some((product) => product.id === i.productId)
+    )) {
+      setFormError('Select an available product and enter a valid quantity for each line.');
       return;
     }
 
@@ -174,22 +177,45 @@ function OrdersManagementContent() {
       ? Math.max(0, Math.min(30, Number(newTaxRatePercent)))
       : 0;
 
-    const created = createOrder({
-      customerId: resolvedCustomerId,
-      salesChannel: newChannel,
-      paymentStatus: newPaymentStatus,
-      fulfillmentStatus: newFulfillmentStatus,
-      discountAmount: Math.max(0, Number(newDiscount) || 0),
-      taxRatePercent: sanitizedTaxRate,
-      notes: newNotes,
-      items: normalizedItems,
-    });
+    setCreatingOrder(true);
+    try {
+      const created = await createOrder({
+        customerId: resolvedCustomerId,
+        salesChannel: newChannel,
+        paymentStatus: newPaymentStatus,
+        fulfillmentStatus: newFulfillmentStatus,
+        discountAmount: Math.max(0, Number(newDiscount) || 0),
+        taxRatePercent: sanitizedTaxRate,
+        notes: newNotes,
+        items: newItems.map(({ productId, quantity }) => ({ productId, quantity })),
+      });
 
-    if (created) {
-      setCreateModalOpen(false);
-      setNewDiscount(0);
-      setNewNotes('');
+      if (created) {
+        setCreateModalOpen(false);
+        setNewDiscount(0);
+        setNewNotes('');
+      } else {
+        setFormError('Order was not saved. Check product availability and workspace storage, then try again.');
+      }
+    } finally {
+      setCreatingOrder(false);
     }
+  };
+
+  const updateSearchQuery = (query: string) => {
+    const url = new URL(window.location.href);
+    if (query) {
+      url.searchParams.set('search', query);
+    } else {
+      url.searchParams.delete('search');
+    }
+
+    // Keep the field responsive while Next.js applies the history update.
+    startTransition(() => {
+      setSearchQuery(query);
+      window.history.replaceState(null, '', url);
+    });
+    setPage(1);
   };
 
   const handleSort = (field: typeof sortField) => {
@@ -248,12 +274,10 @@ function OrdersManagementContent() {
   }, [drawerOrder, orders]);
 
   const summaryStats = useMemo(() => {
-    const paid = orders.filter((o) => o.paymentStatus === 'Paid').length;
-    const pending = orders.filter((o) => o.paymentStatus === 'Pending').length;
-    const refunded = orders.filter((o) => o.paymentStatus === 'Refunded').length;
-    const totalValCents = orders
-      .filter((o) => o.paymentStatus === 'Paid' || o.paymentStatus === 'Refunded')
-      .reduce((acc, o) => acc + Math.max(0, toCents(o.totalAmount) - toCents(o.refundedAmount)), 0);
+    const paid = orders.filter((o) => o.paymentStatus === 'Paid' && isRealizedOrder(o)).length;
+    const pending = orders.filter((o) => o.paymentStatus === 'Pending' && o.fulfillmentStatus !== 'Canceled').length;
+    const refunded = orders.filter((o) => o.paymentStatus === 'Refunded' && isRealizedOrder(o)).length;
+    const totalValCents = orders.reduce((acc, order) => acc + realizedNetCents(order), 0);
     return { paid, pending, refunded, totalVal: fromCents(totalValCents) };
   }, [orders]);
 
@@ -261,8 +285,8 @@ function OrdersManagementContent() {
     <div className="space-y-6">
       <PageHeader
         title="Commercial Order Management"
-        subtitle="Create multi-line orders, calculate tax & discount schedules, manage fulfillment status, and process simulated refunds."
-        meta={`${orders.length.toLocaleString()} Total Orders`}
+        subtitle="Manage orders and simulated refunds across the full ledger. The shared reporting dates apply to Overview, Analytics, and Revenue."
+        meta={`${orders.length.toLocaleString()} All-Time Orders`}
         actions={
           <>
             <button
@@ -325,17 +349,18 @@ function OrdersManagementContent() {
             <Search className="w-3.5 h-3.5 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
+              id="order-search"
+              name="search"
+              aria-label="Search orders"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => updateSearchQuery(e.target.value)}
               placeholder="Search order #, company, contact..."
               className="pl-8 pr-3 py-2 w-60 rounded-lg bg-surface-sunken border border-line text-xs text-ink focus:outline-none"
             />
           </div>
 
           <select
+            id="order-payment-filter"
             aria-label="Filter by payment status"
             value={paymentFilter}
             onChange={(e) => {
@@ -352,6 +377,7 @@ function OrdersManagementContent() {
           </select>
 
           <select
+            id="order-fulfillment-filter"
             aria-label="Filter by fulfillment status"
             value={fulfillmentFilter}
             onChange={(e) => {
@@ -368,6 +394,7 @@ function OrdersManagementContent() {
           </select>
 
           <select
+            id="order-channel-filter"
             aria-label="Filter by sales channel"
             value={channelFilter}
             onChange={(e) => {
@@ -393,9 +420,8 @@ function OrdersManagementContent() {
               type="button"
               disabled={!canMutateOrders}
               title={!canMutateOrders ? getPermissionDeniedMessage(settings.activeRolePreview, 'mutate_orders') : undefined}
-              onClick={() => {
-                bulkUpdateOrderStatus(selectedIds, 'Paid', 'Fulfilled');
-                setSelectedIds([]);
+              onClick={async () => {
+                if (await bulkUpdateOrderStatus(selectedIds, 'Paid', 'Fulfilled')) setSelectedIds([]);
               }}
               className="px-3 py-2 rounded-lg text-xs font-medium bg-emerald-600/10 text-success hover:bg-emerald-600/20 disabled:opacity-40 disabled:cursor-not-allowed"
             >
@@ -419,11 +445,10 @@ function OrdersManagementContent() {
           description="Clear your search or status filters, or create a new commercial order."
           actionLabel="Reset Order Filters"
           onAction={() => {
-            setSearchQuery('');
+            updateSearchQuery('');
             setPaymentFilter('All');
             setFulfillmentFilter('All');
             setChannelFilter('All');
-            setPage(1);
           }}
         />
       ) : (
@@ -452,7 +477,7 @@ function OrdersManagementContent() {
                       className="rounded border-line"
                     />
                   </th>
-                  <th scope="col" className="py-3 px-4">
+                  <th scope="col" aria-sort={sortField === 'orderNumber' ? (sortAsc ? 'ascending' : 'descending') : undefined} className="py-3 px-4">
                     <button
                       type="button"
                       onClick={() => handleSort('orderNumber')}
@@ -463,7 +488,7 @@ function OrdersManagementContent() {
                     </button>
                   </th>
                   <th scope="col" className="py-3 px-4">Customer Account</th>
-                  <th scope="col" className="py-3 px-4">
+                  <th scope="col" aria-sort={sortField === 'orderDate' ? (sortAsc ? 'ascending' : 'descending') : undefined} className="py-3 px-4">
                     <button
                       type="button"
                       onClick={() => handleSort('orderDate')}
@@ -476,7 +501,7 @@ function OrdersManagementContent() {
                   <th scope="col" className="py-3 px-4">Channel</th>
                   <th scope="col" className="py-3 px-4">Payment</th>
                   <th scope="col" className="py-3 px-4">Fulfillment</th>
-                  <th scope="col" className="py-3 px-4 text-right">
+                  <th scope="col" aria-sort={sortField === 'totalAmount' ? (sortAsc ? 'ascending' : 'descending') : undefined} className="py-3 px-4 text-right">
                     <button
                       type="button"
                       onClick={() => handleSort('totalAmount')}
@@ -555,7 +580,7 @@ function OrdersManagementContent() {
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
-                        {ord.paymentStatus === 'Paid' && (
+                        {canRefundOrder(ord) && (
                           <button
                             type="button"
                             disabled={!canIssueRefund}
@@ -620,10 +645,12 @@ function OrdersManagementContent() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="new-order-customer" className="block font-medium text-ink-secondary mb-1">
                 Customer Account
               </label>
               <select
+                id="new-order-customer"
+                name="customerId"
                 value={resolvedCustomerId}
                 onChange={(e) => setNewCustomerId(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
@@ -637,10 +664,12 @@ function OrdersManagementContent() {
             </div>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="new-order-channel" className="block font-medium text-ink-secondary mb-1">
                 Sales Channel
               </label>
               <select
+                id="new-order-channel"
+                name="salesChannel"
                 value={newChannel}
                 onChange={(e) => setNewChannel(e.target.value as SalesChannel)}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
@@ -654,36 +683,45 @@ function OrdersManagementContent() {
           </div>
 
           {/* Line Items Builder */}
-          <div className="space-y-2">
+          <div className="space-y-2" role="group" aria-labelledby="new-order-line-items">
             <div className="flex items-center justify-between">
-              <label className="font-semibold text-ink-secondary">
+              <span id="new-order-line-items" className="font-semibold text-ink-secondary">
                 Order Line Items
-              </label>
+              </span>
               <button
                 type="button"
-                onClick={() =>
-                  setNewItems([
-                    ...newItems,
-                    { productId: products[1]?.id || products[0]?.id || '', quantity: 1 },
-                  ])
-                }
+                disabled={!orderableProducts.length}
+                onClick={() => {
+                  const id = nextLineItemId.current++;
+                  setNewItems((items) => [
+                    ...items,
+                    { id, productId: orderableProducts[1]?.id ?? orderableProducts[0]?.id ?? '', quantity: 1 },
+                  ]);
+                }}
                 className="text-accent font-semibold hover:underline"
               >
                 + Add Line Item
               </button>
             </div>
+            {!orderableProducts.length && (
+              <p role="status" className="text-ink-muted">The catalog has no products available for new orders.</p>
+            )}
 
             <div className="space-y-2">
               {newItems.map((item, idx) => {
-                const prod = products.find((p) => p.id === item.productId);
+                const prod = orderableProducts.find((p) => p.id === item.productId);
                 return (
                   <div
-                    key={idx}
+                    key={item.id}
                     className="grid grid-cols-12 gap-2 items-center p-3 rounded-lg bg-surface-sunken border border-line"
                   >
                     <div className="col-span-7">
                       <select
-                        value={item.productId}
+                        id={`new-order-item-${item.id}-product`}
+                        name={`items[${idx}].productId`}
+                        aria-label={`Product for line item ${idx + 1}`}
+                        value={prod?.id ?? ''}
+                        required
                         onChange={(e) => {
                           const updated = [...newItems];
                           updated[idx].productId = e.target.value;
@@ -691,7 +729,8 @@ function OrdersManagementContent() {
                         }}
                         className="w-full px-2 py-2 rounded bg-surface-raised border border-line"
                       >
-                        {products.map((p) => (
+                        <option value="" disabled>Select an available product</option>
+                        {orderableProducts.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.sku} · {p.name} (${p.unitPrice.toLocaleString()})
                           </option>
@@ -701,6 +740,9 @@ function OrdersManagementContent() {
                     <div className="col-span-2">
                       <input
                         type="number"
+                        id={`new-order-item-${item.id}-quantity`}
+                        name={`items[${idx}].quantity`}
+                        aria-label={`Quantity for line item ${idx + 1}`}
                         min={1}
                         max={500}
                         value={item.quantity}
@@ -723,6 +765,7 @@ function OrdersManagementContent() {
                       {newItems.length > 1 && (
                         <button
                           type="button"
+                          aria-label={`Remove line item ${idx + 1}`}
                           onClick={() => setNewItems(newItems.filter((_, i) => i !== idx))}
                           className="text-ink-muted hover:text-red-500 p-1"
                         >
@@ -738,10 +781,12 @@ function OrdersManagementContent() {
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="new-order-payment" className="block font-medium text-ink-secondary mb-1">
                 Payment Status
               </label>
               <select
+                id="new-order-payment"
+                name="paymentStatus"
                 value={newPaymentStatus}
                 onChange={(e) => setNewPaymentStatus(e.target.value as PaymentStatus)}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
@@ -752,10 +797,12 @@ function OrdersManagementContent() {
             </div>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="new-order-fulfillment" className="block font-medium text-ink-secondary mb-1">
                 Fulfillment
               </label>
               <select
+                id="new-order-fulfillment"
+                name="fulfillmentStatus"
                 value={newFulfillmentStatus}
                 onChange={(e) => setNewFulfillmentStatus(e.target.value as FulfillmentStatus)}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
@@ -767,11 +814,14 @@ function OrdersManagementContent() {
             </div>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="new-order-discount" className="block font-medium text-ink-secondary mb-1">
                 Discount ($)
               </label>
               <input
                 type="number"
+                id="new-order-discount"
+                name="discountAmount"
+                step="0.01"
                 min={0}
                 value={newDiscount}
                 onChange={(e) => setNewDiscount(Math.max(0, Number(e.target.value) || 0))}
@@ -780,11 +830,13 @@ function OrdersManagementContent() {
             </div>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="new-order-tax" className="block font-medium text-ink-secondary mb-1">
                 Tax Rate (%)
               </label>
               <input
                 type="number"
+                id="new-order-tax"
+                name="taxRatePercent"
                 step="0.1"
                 min={0}
                 max={30}
@@ -833,9 +885,10 @@ function OrdersManagementContent() {
             </button>
             <button
               type="submit"
+              disabled={creatingOrder || !orderableProducts.length}
               className="px-4 py-2 rounded-lg bg-accent-strong hover:bg-accent-strong-hover text-white font-semibold"
             >
-              Confirm & Record Order
+              {creatingOrder ? 'Recording…' : 'Confirm & Record Order'}
             </button>
           </div>
         </form>
@@ -855,7 +908,7 @@ function OrdersManagementContent() {
       >
         {refundTargetOrder && (
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               if (!canIssueRefund) {
                 setRefundError(getPermissionDeniedMessage(settings.activeRolePreview, 'issue_refund'));
@@ -868,9 +921,12 @@ function OrdersManagementContent() {
                 );
                 return;
               }
-              setRefundError(null);
-              refundOrder(refundTargetOrder.id, parsed);
-              setRefundTargetOrder(null);
+              if (await refundOrder(refundTargetOrder.id, parsed)) {
+                setRefundError(null);
+                setRefundTargetOrder(null);
+              } else {
+                setRefundError('The refund could not be recorded. Check the order status and storage, then try again.');
+              }
             }}
             className="space-y-4 text-xs"
           >
@@ -878,16 +934,18 @@ function OrdersManagementContent() {
               Issuing a simulated refund deducts the refunded amount from Net Realized Revenue and updates the Refund Rate across all executive dashboards.
             </div>
             {refundError && (
-              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-danger">
+              <div role="alert" className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-danger">
                 {refundError}
               </div>
             )}
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="order-refund-amount" className="block font-medium text-ink-secondary mb-1">
                 Refund Amount (Max: {formatCurrency(refundTargetOrder.totalAmount, settings.currency, settings.numberFormat)})
               </label>
               <input
                 type="number"
+                id="order-refund-amount"
+                name="refundAmount"
                 step="0.01"
                 min={0.01}
                 max={refundTargetOrder.totalAmount}
@@ -922,11 +980,7 @@ function OrdersManagementContent() {
       <ConfirmDialog
         open={Boolean(cancelTargetOrder)}
         onClose={() => setCancelTargetOrder(null)}
-        onConfirm={() => {
-          if (cancelTargetOrder) {
-            cancelOrder(cancelTargetOrder.id);
-          }
-        }}
+        onConfirm={() => cancelTargetOrder ? cancelOrder(cancelTargetOrder.id) : false}
         title={`Cancel Order ${cancelTargetOrder?.orderNumber}?`}
         description="Canceling this order marks fulfillment as Canceled and excludes the invoice from realized revenue."
         confirmLabel="Cancel Order"
@@ -952,10 +1006,12 @@ function OrdersManagementContent() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-ink-muted mb-1">Payment Status</label>
+                  <label htmlFor="order-detail-payment" className="block text-xs text-ink-muted mb-1">Payment Status</label>
                   <select
+                    id="order-detail-payment"
+                    name="paymentStatus"
                     value={activeDrawerOrder.paymentStatus}
-                    disabled={!canMutateOrders}
+                    disabled={!canMutateOrders || activeDrawerOrder.fulfillmentStatus === 'Canceled'}
                     onChange={(e) =>
                       updateOrderStatus(
                         activeDrawerOrder.id,
@@ -965,36 +1021,38 @@ function OrdersManagementContent() {
                     }
                     className="w-full px-3 py-2 rounded-lg bg-surface-raised border border-line disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <option value="Paid">Paid</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Refunded">Refunded</option>
-                    <option value="Failed">Failed</option>
+                    {(['Paid', 'Pending', 'Refunded', 'Failed'] as const).map((status) => (
+                      <option key={status} value={status} disabled={Boolean(
+                        getOrderTransitionError(activeDrawerOrder, status, activeDrawerOrder.fulfillmentStatus)
+                      )}>{status}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-ink-muted mb-1">Fulfillment Status</label>
+                  <label htmlFor="order-detail-fulfillment" className="block text-xs text-ink-muted mb-1">Fulfillment Status</label>
                   <select
+                    id="order-detail-fulfillment"
+                    name="fulfillmentStatus"
                     value={activeDrawerOrder.fulfillmentStatus}
-                    disabled={!canMutateOrders}
-                    onChange={(e) =>
-                      updateOrderStatus(
-                        activeDrawerOrder.id,
-                        activeDrawerOrder.paymentStatus,
-                        e.target.value as FulfillmentStatus
-                      )
-                    }
+                    disabled={!canMutateOrders || activeDrawerOrder.fulfillmentStatus === 'Canceled'}
+                    onChange={(e) => {
+                      const status = e.target.value as FulfillmentStatus;
+                      if (status === 'Canceled') setCancelTargetOrder(activeDrawerOrder);
+                      else updateOrderStatus(activeDrawerOrder.id, activeDrawerOrder.paymentStatus, status);
+                    }}
                     className="w-full px-3 py-2 rounded-lg bg-surface-raised border border-line disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <option value="Fulfilled">Fulfilled</option>
-                    <option value="Processing">Processing</option>
-                    <option value="Scheduled">Scheduled</option>
-                    <option value="Canceled">Canceled</option>
+                    {(['Fulfilled', 'Processing', 'Scheduled', 'Canceled'] as const).map((status) => (
+                      <option key={status} value={status} disabled={Boolean(
+                        getOrderTransitionError(activeDrawerOrder, activeDrawerOrder.paymentStatus, status)
+                      )}>{status}</option>
+                    ))}
                   </select>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 pt-2">
-                {activeDrawerOrder.paymentStatus === 'Paid' && (
+                {canRefundOrder(activeDrawerOrder) && (
                   <button
                     type="button"
                     disabled={!canIssueRefund}

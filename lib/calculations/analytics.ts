@@ -13,14 +13,8 @@ import { nowIso } from '@/lib/clock';
  * CENTRALIZED ANALYTICS & FINANCIAL CALCULATION ENGINE
  *
  * Documented Formula Rules:
- * 1. Eligible Revenue Orders: Orders where `paymentStatus` is 'Paid' or 'Refunded' (excludes 'Failed' and 'Canceled'/'Pending' uncollected orders for realized revenue, with Pending tracked separately).
- * 2. Gross Revenue: Sum of `subtotal` (before discounts & refunds) across all non-failed/non-canceled orders (`Paid` + `Refunded`).
- * 3. Total Discounts: Sum of `discountAmount` across eligible (`Paid` + `Refunded`) orders.
- * 4. Total Tax Collected: Sum of `taxAmount` across eligible (`Paid` + `Refunded`) orders.
- * 5. Total Refunds: Sum of `refundedAmount` across `Refunded` orders.
- * 6. Net Revenue: Sum of (`totalAmount - refundedAmount`) across `Paid` and `Refunded` orders. Never double-counts refunded revenue.
- * 7. Average Order Value (AOV): `Net Revenue / Count of Paid & Partially-Refunded Orders`. Safe zero-denominator handling.
- * 8. Conversion Rate: `(Paid & Processing Orders in period / Unique Visitors in period) * 100`. Derived from daily simulated visitor/session telemetry.
+ * Realized metrics include Paid and Refunded orders with non-canceled fulfillment.
+ * See README.md for the eligibility, refund and reporting rules.
  */
 
 export interface DateWindow {
@@ -42,6 +36,19 @@ export function toCents(amount: number): number {
 export function fromCents(cents: number): number {
   if (!Number.isFinite(cents)) return 0;
   return Math.round(cents) / 100;
+}
+
+export function isRealizedOrder(order: Pick<Order, 'paymentStatus' | 'fulfillmentStatus'>): boolean {
+  return order.fulfillmentStatus !== 'Canceled' &&
+    (order.paymentStatus === 'Paid' || order.paymentStatus === 'Refunded');
+}
+
+function invoiceRefundCents(order: Order): number {
+  return Math.min(toCents(order.totalAmount), Math.max(0, toCents(order.refundedAmount)));
+}
+
+export function realizedNetCents(order: Order): number {
+  return isRealizedOrder(order) ? toCents(order.totalAmount) - invoiceRefundCents(order) : 0;
 }
 
 function parseWindowStartMs(value: string): number {
@@ -118,9 +125,11 @@ export function filterOrdersByWindow(orders: Order[], startMs: number, endMs: nu
     .sort((a, b) => Date.parse(b.orderDate) - Date.parse(a.orderDate) || b.id.localeCompare(a.id));
 }
 
-export function calculatePercentChange(current: number, previous: number): number {
+type PercentChange = number | null;
+
+export function calculatePercentChange(current: number, previous: number): PercentChange {
   if (previous === 0) {
-    return current > 0 ? 100 : 0;
+    return current === 0 ? 0 : null;
   }
   return Math.round(((current - previous) / Math.abs(previous)) * 1000) / 10;
 }
@@ -134,6 +143,7 @@ export interface FinancialSummary {
   pendingRevenue: number;
   failedOrderVolume: number;
   totalOrdersCount: number;
+  completedOrdersCount: number;
   paidOrdersCount: number;
   refundedOrdersCount: number;
   averageOrderValue: number;
@@ -161,19 +171,21 @@ export function calculateFinancialSummary(
   let failedCents = 0;
   let paidOrdersCount = 0;
   let refundedOrdersCount = 0;
+  let completedOrdersCount = 0;
 
   const activeCustomerIds = new Set<string>();
 
   for (const order of periodOrders) {
     const orderTotalCents = toCents(order.totalAmount);
-    if (order.paymentStatus === 'Paid' || order.paymentStatus === 'Refunded') {
-      const orderRefundCents = Math.min(orderTotalCents, Math.max(0, toCents(order.refundedAmount)));
+    if (isRealizedOrder(order)) {
+      const orderRefundCents = invoiceRefundCents(order);
       grossCents += toCents(order.subtotal);
       discountCents += toCents(order.discountAmount);
       taxCents += toCents(order.taxAmount);
       refundCents += orderRefundCents;
       netCents += Math.max(0, orderTotalCents - orderRefundCents);
       activeCustomerIds.add(order.customerId);
+      if (order.fulfillmentStatus === 'Fulfilled') completedOrdersCount++;
 
       if (order.paymentStatus === 'Paid') {
         paidOrdersCount++;
@@ -222,6 +234,7 @@ export function calculateFinancialSummary(
     pendingRevenue: fromCents(pendingCents),
     failedOrderVolume: fromCents(failedCents),
     totalOrdersCount: periodOrders.length,
+    completedOrdersCount,
     paidOrdersCount,
     refundedOrdersCount,
     averageOrderValue,
@@ -237,13 +250,14 @@ export interface ExecutiveKPIComparison {
   current: FinancialSummary;
   previous: FinancialSummary;
   deltas: {
-    netRevenue: number;
-    grossRevenue: number;
-    totalOrders: number;
-    activeCustomers: number;
-    averageOrderValue: number;
-    conversionRate: number;
-    refundRate: number;
+    netRevenue: PercentChange;
+    grossRevenue: PercentChange;
+    totalOrders: PercentChange;
+    completedOrders: PercentChange;
+    activeCustomers: PercentChange;
+    averageOrderValue: PercentChange;
+    conversionRate: PercentChange;
+    refundRate: PercentChange;
   };
 }
 
@@ -267,6 +281,7 @@ export function calculateExecutiveComparison(
       netRevenue: calculatePercentChange(current.netRevenue, previous.netRevenue),
       grossRevenue: calculatePercentChange(current.grossRevenue, previous.grossRevenue),
       totalOrders: calculatePercentChange(current.totalOrdersCount, previous.totalOrdersCount),
+      completedOrders: calculatePercentChange(current.completedOrdersCount, previous.completedOrdersCount),
       activeCustomers: calculatePercentChange(
         current.activeCustomersCount,
         previous.activeCustomersCount
@@ -410,11 +425,10 @@ export function buildRevenueTimeSeries(
     if (!key || !buckets.has(key)) continue;
     const b = buckets.get(key)!;
     b.orders += 1;
-    if (order.paymentStatus === 'Paid' || order.paymentStatus === 'Refunded') {
-      const totalCents = toCents(order.totalAmount);
-      const refundCents = Math.min(totalCents, Math.max(0, toCents(order.refundedAmount)));
+    if (isRealizedOrder(order)) {
+      const refundCents = invoiceRefundCents(order);
       b.grossCents += toCents(order.subtotal);
-      b.netCents += Math.max(0, totalCents - refundCents);
+      b.netCents += toCents(order.totalAmount) - refundCents;
       b.refundCents += refundCents;
       b.eligibleOrders += 1;
     }
@@ -461,13 +475,9 @@ export function calculateSalesByChannel(orders: Order[]): ChannelBreakdownItem[]
   for (const o of orders) {
     const entry = map.get(o.salesChannel) || { orders: 0, netCents: 0 };
     entry.orders += 1;
-    if (o.paymentStatus === 'Paid' || o.paymentStatus === 'Refunded') {
-      const totalCents = toCents(o.totalAmount);
-      const refundCents = Math.min(totalCents, Math.max(0, toCents(o.refundedAmount)));
-      const netCents = Math.max(0, totalCents - refundCents);
-      entry.netCents += netCents;
-      totalNetCents += netCents;
-    }
+    const netCents = realizedNetCents(o);
+    entry.netCents += netCents;
+    totalNetCents += netCents;
     map.set(o.salesChannel, entry);
   }
 
@@ -481,8 +491,10 @@ export function calculateSalesByChannel(orders: Order[]): ChannelBreakdownItem[]
     .sort((a, b) => b.netRevenue - a.netRevenue);
 }
 
+type HistoricalCategory = ProductCategory | 'Unclassified';
+
 export interface CategoryPerformanceItem {
-  category: ProductCategory;
+  category: HistoricalCategory;
   unitsSold: number;
   grossRevenue: number;
   sharePercent: number;
@@ -498,21 +510,22 @@ export function calculateSalesByCategory(orders: Order[]): CategoryPerformanceIt
     'Advisory Retainer',
   ];
 
-  const map = new Map<ProductCategory, { unitsSold: number; grossCents: number }>();
+  const map = new Map<HistoricalCategory, { unitsSold: number; grossCents: number }>();
   for (const c of categories) {
     map.set(c, { unitsSold: 0, grossCents: 0 });
   }
 
   let totalGrossCents = 0;
   for (const o of orders) {
-    if (o.paymentStatus !== 'Paid' && o.paymentStatus !== 'Refunded') continue;
+    if (!isRealizedOrder(o)) continue;
     for (const item of o.lineItems) {
-      const entry = map.get(item.category) || { unitsSold: 0, grossCents: 0 };
+      const category = item.category ?? 'Unclassified';
+      const entry = map.get(category) || { unitsSold: 0, grossCents: 0 };
       const itemCents = toCents(item.subtotal);
       entry.unitsSold += item.quantity;
       entry.grossCents += itemCents;
       totalGrossCents += itemCents;
-      map.set(item.category, entry);
+      map.set(category, entry);
     }
   }
 
@@ -549,7 +562,7 @@ export function calculateProductPerformance(
   >();
 
   for (const o of orders) {
-    if (o.paymentStatus !== 'Paid' && o.paymentStatus !== 'Refunded') continue;
+    if (!isRealizedOrder(o)) continue;
     for (const li of o.lineItems) {
       const existing = statsMap.get(li.productId) || {
         unitsSold: 0,
@@ -581,6 +594,59 @@ export function calculateProductPerformance(
     .sort((a, b) => b.grossRevenue - a.grossRevenue);
 }
 
+export function calculateHistoricalProductVelocity(
+  orders: Order[],
+  products: Product[],
+  categoryFilter: ProductCategory | 'All'
+) {
+  const currentStock = new Map(products.map((product) => [product.id, product.stockLevel]));
+  const groups = new Map<string, {
+    productId: string;
+    sku: string;
+    name: string;
+    category: HistoricalCategory;
+    unitsSold: number;
+    grossCents: number;
+    orderIds: Set<string>;
+  }>();
+
+  for (const order of orders) {
+    if (!isRealizedOrder(order)) continue;
+    for (const line of order.lineItems) {
+      const category = line.category ?? 'Unclassified';
+      if (categoryFilter !== 'All' && category !== categoryFilter) continue;
+
+      const key = JSON.stringify([line.productId, line.sku, category]);
+      const group = groups.get(key) ?? {
+        productId: line.productId,
+        sku: line.sku,
+        name: line.productName,
+        category,
+        unitsSold: 0,
+        grossCents: 0,
+        orderIds: new Set<string>(),
+      };
+      group.unitsSold += line.quantity;
+      group.grossCents += toCents(line.subtotal);
+      group.orderIds.add(order.id);
+      groups.set(key, group);
+    }
+  }
+
+  return [...groups.values()]
+    .sort((a, b) => b.grossCents - a.grossCents || a.sku.localeCompare(b.sku) || a.category.localeCompare(b.category))
+    .map(({ productId, sku, name, category, unitsSold, grossCents, orderIds }) => ({
+      sku,
+      name,
+      category,
+      averageRecordedUnitPrice: fromCents(Math.round(grossCents / unitsSold)),
+      unitsSold,
+      ordersCount: orderIds.size,
+      grossCents,
+      currentStock: currentStock.get(productId),
+    }));
+}
+
 export interface CustomerWithMetrics extends Customer {
   lifetimeSpend: number;
   ordersCount: number;
@@ -606,10 +672,8 @@ export function enrichCustomersWithMetrics(
       lastMs: -Infinity,
     };
     cur.count += 1;
-    if (o.paymentStatus === 'Paid' || o.paymentStatus === 'Refunded') {
-      const totalCents = toCents(o.totalAmount);
-      const refundCents = Math.min(totalCents, Math.max(0, toCents(o.refundedAmount)));
-      cur.spendCents += Math.max(0, totalCents - refundCents);
+    if (isRealizedOrder(o)) {
+      cur.spendCents += realizedNetCents(o);
       cur.settledCount += 1;
     }
     const orderMs = Date.parse(o.orderDate);

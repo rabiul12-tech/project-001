@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { fromCents, toCents } from '@/lib/calculations/analytics';
+import type { Order } from '@/types';
 
 export const customerSchema = z.object({
   id: z.string().min(1),
@@ -47,6 +49,9 @@ export const productFormSchema = productSchema.omit({
   createdAt: true,
   updatedAt: true,
   imageCode: true,
+}).extend({
+  unitPrice: productSchema.shape.unitPrice.refine(isMinorUnitAmount, 'Use at most two decimal places for the unit price'),
+  costPrice: productSchema.shape.costPrice.refine(isMinorUnitAmount, 'Use at most two decimal places for the unit cost'),
 });
 
 export type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -63,7 +68,7 @@ export const orderLineItemSchema = z.object({
     'Security & Compliance',
     'API & Integrations',
     'Advisory Retainer',
-  ]),
+  ]).nullish(),
   quantity: z.coerce.number().int().positive('Quantity must be at least 1').max(10000),
   unitPrice: z.coerce.number().nonnegative(),
   subtotal: z.coerce.number().nonnegative(),
@@ -85,6 +90,10 @@ export const orderSchema = z
     taxAmount: z.number().nonnegative(),
     totalAmount: z.number().nonnegative(),
     refundedAmount: z.number().nonnegative(),
+    stockDebits: z.array(z.object({
+      productId: z.string().min(1),
+      quantity: z.number().int().positive().max(100000),
+    })).optional(),
     paymentStatus: z.enum(['Paid', 'Pending', 'Refunded', 'Failed']),
     fulfillmentStatus: z.enum(['Fulfilled', 'Processing', 'Scheduled', 'Canceled']),
     salesChannel: z.enum([
@@ -99,6 +108,59 @@ export const orderSchema = z
     message: 'Refunded amount cannot exceed order total',
     path: ['refundedAmount'],
   });
+
+export function isMinorUnitAmount(amount: number): boolean {
+  const cents = toCents(amount);
+  return Number.isSafeInteger(cents) && fromCents(cents) === amount;
+}
+
+/** Validate invoice amounts against locked line items before importing a backup. */
+export function getOrderFinancialError(order: Order): string | null {
+  const amounts = [order.subtotal, order.discountAmount, order.taxAmount, order.totalAmount, order.refundedAmount];
+  if (!amounts.every(isMinorUnitAmount)) return 'contains invalid currency precision or amount';
+
+  let subtotal = 0;
+  const quantities = new Map<string, number>();
+  for (const item of order.lineItems) {
+    const lineSubtotal = item.quantity * toCents(item.unitPrice);
+    if (!isMinorUnitAmount(item.unitPrice) || !isMinorUnitAmount(item.subtotal) ||
+        !Number.isSafeInteger(lineSubtotal) || lineSubtotal !== toCents(item.subtotal)) {
+      return `has an inconsistent subtotal for line item "${item.sku}"`;
+    }
+    subtotal += lineSubtotal;
+    quantities.set(item.productId, (quantities.get(item.productId) ?? 0) + item.quantity);
+  }
+  if (!Number.isSafeInteger(subtotal) || subtotal !== toCents(order.subtotal)) {
+    return 'has an inconsistent subtotal for its line items';
+  }
+
+  const discount = toCents(order.discountAmount);
+  if (discount > subtotal) return 'has a discount greater than its subtotal';
+
+  const taxable = subtotal - discount;
+  const tax = toCents(order.taxAmount);
+  const expectedTax = Math.round(taxable * order.taxRate);
+  // Early demo data computed tax in dollars before rounding to cents.
+  const legacyTax = Math.round(fromCents(taxable) * order.taxRate * 100);
+  if (tax !== expectedTax && (tax !== legacyTax || Math.abs(expectedTax - tax) !== 1)) {
+    return 'has tax that does not match its rate and discounted subtotal';
+  }
+  const total = taxable + tax;
+  if (!Number.isSafeInteger(total) || toCents(order.totalAmount) !== total) {
+    return 'has a total that does not match subtotal minus discount plus tax';
+  }
+  const refunded = toCents(order.refundedAmount);
+  if (refunded > total || (refunded > 0) !== (order.paymentStatus === 'Refunded')) {
+    return 'has a refund inconsistent with its total or payment status';
+  }
+  for (const debit of order.stockDebits ?? []) {
+    if (debit.quantity > (quantities.get(debit.productId) ?? 0)) {
+      return 'has a stock debit inconsistent with its line items';
+    }
+    quantities.delete(debit.productId);
+  }
+  return null;
+}
 
 export const createOrderFormSchema = z.object({
   customerId: z.string().min(1, 'Please select a customer'),
@@ -209,7 +271,7 @@ export const backupStorageSchema = z.object({
   schemaVersion: z.number().int().positive(),
   seededAt: z.string(),
   lastUpdatedAt: z.string(),
-  customers: z.array(customerSchema).min(1, 'Backup must include at least one customer'),
+  customers: z.array(customerSchema),
   products: z.array(productSchema).min(1, 'Backup must include at least one product'),
   orders: z.array(orderSchema),
   team: z.array(

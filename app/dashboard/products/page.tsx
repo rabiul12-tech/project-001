@@ -16,6 +16,8 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useWorkspaceAction } from '@/hooks/useWorkspaceAction';
+import { useDirectorySearch } from '@/hooks/useDirectorySearch';
 import { calculateProductPerformance } from '@/lib/calculations/analytics';
 import {
   convertRowsToCsv,
@@ -46,19 +48,19 @@ function ProductsCatalogContent() {
   const products = useAppStore((s) => s.products);
   const orders = useAppStore((s) => s.orders);
   const settings = useAppStore((s) => s.settings);
-  const addProduct = useAppStore((s) => s.addProduct);
-  const updateProduct = useAppStore((s) => s.updateProduct);
-  const archiveProducts = useAppStore((s) => s.archiveProducts);
+  const addProduct = useWorkspaceAction((s) => s.addProduct);
+  const updateProduct = useWorkspaceAction((s) => s.updateProduct);
+  const archiveProducts = useWorkspaceAction((s) => s.archiveProducts);
   const addToast = useAppStore((s) => s.addToast);
   const canMutateProducts = canPerformAction(settings.activeRolePreview, 'mutate_products');
 
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
-  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
+  const { searchQuery, setSearchQuery, page, setPage } = useDirectorySearch(searchParams.get('search') ?? '');
   const [categoryFilter, setCategoryFilter] = useState<ProductCategory | 'All'>('All');
   const [statusFilter, setStatusFilter] = useState<ProductStatus | 'All'>('All');
   const [sortField, setSortField] = useState<'grossRevenue' | 'unitPrice' | 'stockLevel' | 'name'>('grossRevenue');
   const [sortAsc, setSortAsc] = useState(false);
-  const [page, setPage] = useState(1);
+  const sortDirection = sortAsc ? 'ascending' : 'descending';
   const [pageSize, setPageSize] = useState(10);
 
   const [drawerProduct, setDrawerProduct] = useState<Product | null>(null);
@@ -187,7 +189,7 @@ function ProductsCatalogContent() {
     setModalOpen(true);
   };
 
-  const onSubmitForm = (values: ProductFormValues) => {
+  const onSubmitForm = async (values: ProductFormValues) => {
     if (!canMutateProducts) {
       addToast(
         'Permission restricted',
@@ -197,10 +199,10 @@ function ProductsCatalogContent() {
       return;
     }
     if (editingProduct) {
-      updateProduct(editingProduct.id, values);
+      await updateProduct(editingProduct.id, values);
       setModalOpen(false);
     } else {
-      const created = addProduct(values);
+      const created = await addProduct(values);
       if (created) setModalOpen(false);
     }
   };
@@ -308,10 +310,8 @@ function ProductsCatalogContent() {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search products"
               placeholder="Search SKU, product name, category..."
               className="pl-8 pr-3 py-2 w-64 rounded-lg bg-surface-sunken border border-line text-xs text-ink focus:outline-none"
             />
@@ -352,9 +352,10 @@ function ProductsCatalogContent() {
         </div>
 
         {/* Table / Grid Toggle */}
-        <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-sunken border border-line self-start">
+        <div role="group" aria-label="Product view" className="flex items-center gap-1 p-1 rounded-lg bg-surface-sunken border border-line self-start">
           <button
             type="button"
+            aria-pressed={viewMode === 'table'}
             onClick={() => setViewMode('table')}
             className={`inline-flex items-center gap-2 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
               viewMode === 'table'
@@ -367,6 +368,7 @@ function ProductsCatalogContent() {
           </button>
           <button
             type="button"
+            aria-pressed={viewMode === 'grid'}
             onClick={() => setViewMode('grid')}
             className={`inline-flex items-center gap-2 px-3 py-1 rounded-md text-xs font-medium transition-colors ${
               viewMode === 'grid'
@@ -399,7 +401,7 @@ function ProductsCatalogContent() {
             <table className="w-full text-left border-collapse text-sm table-sticky-first">
               <thead>
                 <tr className="border-b border-line bg-surface-sunken/60 text-caption font-semibold text-ink-muted">
-                  <th scope="col" className="py-3 px-4">
+                  <th scope="col" aria-sort={sortField === 'name' ? sortDirection : undefined} className="py-3 px-4">
                     <button
                       type="button"
                       onClick={() => handleSort('name')}
@@ -411,7 +413,7 @@ function ProductsCatalogContent() {
                   </th>
                   <th scope="col" className="py-3 px-4">Category</th>
                   <th scope="col" className="py-3 px-4">Status</th>
-                  <th scope="col" className="py-3 px-4 text-right">
+                  <th scope="col" aria-sort={sortField === 'unitPrice' ? sortDirection : undefined} className="py-3 px-4 text-right">
                     <button
                       type="button"
                       onClick={() => handleSort('unitPrice')}
@@ -421,7 +423,7 @@ function ProductsCatalogContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th scope="col" className="py-3 px-4 text-right">
+                  <th scope="col" aria-sort={sortField === 'stockLevel' ? sortDirection : undefined} className="py-3 px-4 text-right">
                     <button
                       type="button"
                       onClick={() => handleSort('stockLevel')}
@@ -431,7 +433,7 @@ function ProductsCatalogContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th scope="col" className="py-3 px-4 text-right">
+                  <th scope="col" aria-sort={sortField === 'grossRevenue' ? sortDirection : undefined} className="py-3 px-4 text-right">
                     <button
                       type="button"
                       onClick={() => handleSort('grossRevenue')}
@@ -549,8 +551,7 @@ function ProductsCatalogContent() {
             {paginatedProducts.map((prod) => (
               <div
                 key={prod.id}
-                onClick={() => setDrawerProduct(prod)}
-                className="p-6 rounded-xl bg-surface-raised border border-line hover:border-blue-500/40 cursor-pointer transition-colors flex flex-col justify-between gap-4"
+                className="relative p-6 rounded-xl bg-surface-raised border border-line hover:border-blue-500/40 transition-colors flex flex-col justify-between gap-4"
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
@@ -562,7 +563,14 @@ function ProductsCatalogContent() {
                       {prod.sku} · {prod.category}
                     </div>
                     <h3 className="text-subheading text-ink mt-1">
-                      {prod.name}
+                      <button
+                        type="button"
+                        aria-label={`View ${prod.name}`}
+                        onClick={() => setDrawerProduct(prod)}
+                        className="text-left cursor-pointer after:absolute after:inset-0 after:rounded-xl focus-visible:after:ring-2 focus-visible:after:ring-accent"
+                      >
+                        {prod.name}
+                      </button>
                     </h3>
                     <p className="text-xs text-ink-secondary mt-1 line-clamp-2 leading-relaxed">
                       {prod.description}
@@ -614,24 +622,28 @@ function ProductsCatalogContent() {
         <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-4 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="product-sku" className="block font-medium text-ink-secondary mb-1">
                 SKU Code
               </label>
               <input
                 type="text"
+                id="product-sku"
+                aria-invalid={Boolean(errors.sku)}
+                aria-describedby={errors.sku ? 'product-sku-error' : undefined}
                 {...register('sku')}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
               />
               {errors.sku && (
-                <p className="text-danger text-xs mt-1">{errors.sku.message}</p>
+                <p id="product-sku-error" role="alert" className="text-danger text-xs mt-1">{errors.sku.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="product-category" className="block font-medium text-ink-secondary mb-1">
                 Category
               </label>
               <select
+                id="product-category"
                 {...register('category')}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
               >
@@ -646,67 +658,89 @@ function ProductsCatalogContent() {
           </div>
 
           <div>
-            <label className="block font-medium text-ink-secondary mb-1">
+            <label htmlFor="product-name" className="block font-medium text-ink-secondary mb-1">
               Product Name
             </label>
             <input
               type="text"
+              id="product-name"
+              aria-invalid={Boolean(errors.name)}
+              aria-describedby={errors.name ? 'product-name-error' : undefined}
               {...register('name')}
               placeholder="Aurelix Treasury Risk Engine"
               className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
             />
             {errors.name && (
-              <p className="text-danger text-xs mt-1">{errors.name.message}</p>
+              <p id="product-name-error" role="alert" className="text-danger text-xs mt-1">{errors.name.message}</p>
             )}
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="product-unit-price" className="block font-medium text-ink-secondary mb-1">
                 Unit Price ($)
               </label>
               <input
                 type="number"
-                step="1"
+                inputMode="decimal"
+                step="0.01"
+                min="0.01"
+                max="1000000"
+                id="product-unit-price"
+                aria-invalid={Boolean(errors.unitPrice)}
+                aria-describedby={errors.unitPrice ? 'product-unit-price-error' : undefined}
                 {...register('unitPrice', { valueAsNumber: true })}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
               />
               {errors.unitPrice && (
-                <p className="text-danger text-xs mt-1">{errors.unitPrice.message}</p>
+                <p id="product-unit-price-error" role="alert" className="text-danger text-xs mt-1">{errors.unitPrice.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="product-cost-price" className="block font-medium text-ink-secondary mb-1">
                 Unit Cost ($)
               </label>
               <input
                 type="number"
-                step="1"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                max="1000000"
+                id="product-cost-price"
+                aria-invalid={Boolean(errors.costPrice)}
+                aria-describedby={errors.costPrice ? 'product-cost-price-error' : undefined}
                 {...register('costPrice', { valueAsNumber: true })}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
               />
-            </div>
-
-            <div>
-              <label className="block font-medium text-ink-secondary mb-1">
-                Stock Level
-              </label>
-              <input
-                type="number"
-                {...register('stockLevel', { valueAsNumber: true })}
-                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
-              />
-              {errors.stockLevel && (
-                <p className="text-danger text-xs mt-1">{errors.stockLevel.message}</p>
+              {errors.costPrice && (
+                <p id="product-cost-price-error" role="alert" className="text-danger text-xs mt-1">{errors.costPrice.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="product-stock-level" className="block font-medium text-ink-secondary mb-1">
+                Stock Level
+              </label>
+              <input
+                type="number"
+                id="product-stock-level"
+                aria-invalid={Boolean(errors.stockLevel)}
+                aria-describedby={errors.stockLevel ? 'product-stock-level-error' : undefined}
+                {...register('stockLevel', { valueAsNumber: true })}
+                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
+              />
+              {errors.stockLevel && (
+                <p id="product-stock-level-error" role="alert" className="text-danger text-xs mt-1">{errors.stockLevel.message}</p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="product-status" className="block font-medium text-ink-secondary mb-1">
                 Status
               </label>
               <select
+                id="product-status"
                 {...register('status')}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
               >
@@ -718,16 +752,19 @@ function ProductsCatalogContent() {
           </div>
 
           <div>
-            <label className="block font-medium text-ink-secondary mb-1">
+            <label htmlFor="product-description" className="block font-medium text-ink-secondary mb-1">
               Technical Description
             </label>
             <textarea
               rows={3}
+              id="product-description"
+              aria-invalid={Boolean(errors.description)}
+              aria-describedby={errors.description ? 'product-description-error' : undefined}
               {...register('description')}
               className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
             />
             {errors.description && (
-              <p className="text-danger text-xs mt-1">{errors.description.message}</p>
+              <p id="product-description-error" role="alert" className="text-danger text-xs mt-1">{errors.description.message}</p>
             )}
           </div>
 

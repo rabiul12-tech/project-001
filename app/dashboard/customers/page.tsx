@@ -14,6 +14,8 @@ import {
   ArrowUpDown,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useWorkspaceAction } from '@/hooks/useWorkspaceAction';
+import { useDirectorySearch } from '@/hooks/useDirectorySearch';
 import {
   CustomerWithMetrics,
   enrichCustomersWithMetrics,
@@ -51,17 +53,17 @@ function CustomersDirectoryContent() {
   const customers = useAppStore((s) => s.customers);
   const orders = useAppStore((s) => s.orders);
   const settings = useAppStore((s) => s.settings);
-  const addCustomer = useAppStore((s) => s.addCustomer);
-  const updateCustomer = useAppStore((s) => s.updateCustomer);
-  const deleteCustomers = useAppStore((s) => s.deleteCustomers);
+  const addCustomer = useWorkspaceAction((s) => s.addCustomer);
+  const updateCustomer = useWorkspaceAction((s) => s.updateCustomer);
+  const deleteCustomers = useWorkspaceAction((s) => s.deleteCustomers);
   const addToast = useAppStore((s) => s.addToast);
 
-  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
+  const { searchQuery, setSearchQuery, page, setPage } = useDirectorySearch(searchParams.get('search') ?? '');
   const [segmentFilter, setSegmentFilter] = useState<CustomerSegment | 'All'>('All');
   const [statusFilter, setStatusFilter] = useState<CustomerStatus | 'All'>('All');
   const [sortField, setSortField] = useState<'company' | 'lifetimeSpend' | 'ordersCount' | 'lastOrderDate'>('lifetimeSpend');
   const [sortAsc, setSortAsc] = useState(false);
-  const [page, setPage] = useState(1);
+  const sortDirection = sortAsc ? 'ascending' : 'descending';
   const [pageSize, setPageSize] = useState(10);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -208,7 +210,7 @@ function CustomersDirectoryContent() {
     setDeleteTargetIds(ids);
   };
 
-  const onSubmitForm = (values: CustomerFormValues) => {
+  const onSubmitForm = async (values: CustomerFormValues) => {
     if (!canMutateCustomers) {
       addToast(
         'Permission restricted',
@@ -218,10 +220,10 @@ function CustomersDirectoryContent() {
       return;
     }
     if (editingCustomer) {
-      updateCustomer(editingCustomer.id, values);
+      await updateCustomer(editingCustomer.id, values);
       setModalOpen(false);
     } else {
-      const created = addCustomer(values);
+      const created = await addCustomer(values);
       if (created) setModalOpen(false);
     }
   };
@@ -356,10 +358,8 @@ function CustomersDirectoryContent() {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setPage(1);
-              }}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search customers"
               placeholder="Search company, contact, email, country..."
               className="pl-8 pr-3 py-2 w-64 rounded-lg bg-surface-sunken border border-line text-xs text-ink focus:outline-none"
             />
@@ -454,7 +454,7 @@ function CustomersDirectoryContent() {
                       className="rounded border-line"
                     />
                   </th>
-                  <th scope="col" className="py-3 px-4">
+                  <th scope="col" aria-sort={sortField === 'company' ? sortDirection : undefined} className="py-3 px-4">
                     <button
                       type="button"
                       onClick={() => handleSort('company')}
@@ -466,7 +466,7 @@ function CustomersDirectoryContent() {
                   </th>
                   <th scope="col" className="py-3 px-4">Segment · Country</th>
                   <th scope="col" className="py-3 px-4">Status</th>
-                  <th scope="col" className="py-3 px-4 text-right">
+                  <th scope="col" aria-sort={sortField === 'ordersCount' ? sortDirection : undefined} className="py-3 px-4 text-right">
                     <button
                       type="button"
                       onClick={() => handleSort('ordersCount')}
@@ -476,7 +476,7 @@ function CustomersDirectoryContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th scope="col" className="py-3 px-4 text-right">
+                  <th scope="col" aria-sort={sortField === 'lifetimeSpend' ? sortDirection : undefined} className="py-3 px-4 text-right">
                     <button
                       type="button"
                       onClick={() => handleSort('lifetimeSpend')}
@@ -486,7 +486,7 @@ function CustomersDirectoryContent() {
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
-                  <th scope="col" className="py-3 px-4">
+                  <th scope="col" aria-sort={sortField === 'lastOrderDate' ? sortDirection : undefined} className="py-3 px-4">
                     <button
                       type="button"
                       onClick={() => handleSort('lastOrderDate')}
@@ -616,73 +616,86 @@ function CustomersDirectoryContent() {
         <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-4 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="customer-company" className="block font-medium text-ink-secondary mb-1">
                 Company Name
               </label>
               <input
                 type="text"
+                id="customer-company"
+                aria-invalid={Boolean(errors.company)}
+                aria-describedby={errors.company ? 'customer-company-error' : undefined}
                 {...register('company')}
                 placeholder="Vanguard Systems"
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               />
               {errors.company && (
-                <p className="text-danger text-xs mt-1">{errors.company.message}</p>
+                <p id="customer-company-error" role="alert" className="text-danger text-xs mt-1">{errors.company.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="customer-name" className="block font-medium text-ink-secondary mb-1">
                 Primary Contact Name
               </label>
               <input
                 type="text"
+                id="customer-name"
+                aria-invalid={Boolean(errors.name)}
+                aria-describedby={errors.name ? 'customer-name-error' : undefined}
                 {...register('name')}
                 placeholder="Evelyn Mercer"
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               />
               {errors.name && (
-                <p className="text-danger text-xs mt-1">{errors.name.message}</p>
+                <p id="customer-name-error" role="alert" className="text-danger text-xs mt-1">{errors.name.message}</p>
               )}
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="customer-email" className="block font-medium text-ink-secondary mb-1">
                 Corporate Email
               </label>
               <input
                 type="email"
+                id="customer-email"
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? 'customer-email-error' : undefined}
                 {...register('email')}
                 placeholder="evelyn.mercer@vanguard.io"
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               />
               {errors.email && (
-                <p className="text-danger text-xs mt-1">{errors.email.message}</p>
+                <p id="customer-email-error" role="alert" className="text-danger text-xs mt-1">{errors.email.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="customer-phone" className="block font-medium text-ink-secondary mb-1">
                 Phone Number
               </label>
               <input
                 type="text"
+                id="customer-phone"
+                aria-invalid={Boolean(errors.phone)}
+                aria-describedby={errors.phone ? 'customer-phone-error' : undefined}
                 {...register('phone')}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               />
               {errors.phone && (
-                <p className="text-danger text-xs mt-1">{errors.phone.message}</p>
+                <p id="customer-phone-error" role="alert" className="text-danger text-xs mt-1">{errors.phone.message}</p>
               )}
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="customer-segment" className="block font-medium text-ink-secondary mb-1">
                 Segment Tier
               </label>
               <select
+                id="customer-segment"
                 {...register('segment')}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               >
@@ -694,10 +707,11 @@ function CustomersDirectoryContent() {
             </div>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="customer-status" className="block font-medium text-ink-secondary mb-1">
                 Account Status
               </label>
               <select
+                id="customer-status"
                 {...register('status')}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               >
@@ -709,26 +723,30 @@ function CustomersDirectoryContent() {
             </div>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="customer-country" className="block font-medium text-ink-secondary mb-1">
                 Country
               </label>
               <input
                 type="text"
+                id="customer-country"
+                aria-invalid={Boolean(errors.country)}
+                aria-describedby={errors.country ? 'customer-country-error' : undefined}
                 {...register('country')}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
               />
               {errors.country && (
-                <p className="text-danger text-xs mt-1">{errors.country.message}</p>
+                <p id="customer-country-error" role="alert" className="text-danger text-xs mt-1">{errors.country.message}</p>
               )}
             </div>
           </div>
 
           <div>
-            <label className="block font-medium text-ink-secondary mb-1">
+            <label htmlFor="customer-notes" className="block font-medium text-ink-secondary mb-1">
               Executive Account Notes
             </label>
             <textarea
               rows={3}
+              id="customer-notes"
               {...register('notes')}
               placeholder="Contract renewal schedule, SLA terms, or billing contacts..."
               className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line text-ink"
@@ -757,9 +775,9 @@ function CustomersDirectoryContent() {
       <ConfirmDialog
         open={Boolean(deleteTargetIds)}
         onClose={() => setDeleteTargetIds(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (deleteTargetIds) {
-            deleteCustomers(deleteTargetIds);
+            await deleteCustomers(deleteTargetIds);
             setSelectedIds([]);
             if (drawerCustomer && deleteTargetIds.includes(drawerCustomer.id)) {
               setDrawerCustomer(null);

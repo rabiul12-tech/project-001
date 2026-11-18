@@ -30,10 +30,11 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useWorkspaceAction } from '@/hooks/useWorkspaceAction';
 import { DateRangePicker } from '@/components/ui/DateRangePicker';
 import { UserAvatar } from '@/components/ui/primitives';
 import { ConfirmDialog } from '@/components/ui/overlays';
-import { CommandPalette } from '@/components/layout/CommandPalette';
+import { CommandPalette, LayoutDialog } from '@/components/layout/CommandPalette';
 import { TeamRole } from '@/types';
 import { formatCurrency } from '@/lib/export/exporter';
 import { canPerformAction, getPermissionDeniedMessage } from '@/lib/permissions';
@@ -93,21 +94,27 @@ const WORKSPACE_UNITS = [
   { name: 'Aurelix APAC Division', region: 'AP-South · Singapore' },
 ];
 
+const TOPBAR_ICON_BUTTON =
+  'grid size-10 shrink-0 place-items-center rounded-lg border border-line bg-surface-raised text-ink-secondary transition-colors hover:bg-surface-hover hover:text-ink sm:size-11';
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
   const settings = useAppStore((s) => s.settings);
+  const profileAvatar = useAppStore((s) => s.team.find(
+    (member) => member.email.toLowerCase() === s.settings.personalEmail.toLowerCase()
+  )?.avatarUrl);
   const orders = useAppStore((s) => s.orders);
   const products = useAppStore((s) => s.products);
   const mobileNavOpen = useAppStore((s) => s.mobileNavOpen);
   const setMobileNavOpen = useAppStore((s) => s.setMobileNavOpen);
-  const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
+  const setSidebarCollapsed = useWorkspaceAction((s) => s.setSidebarCollapsed);
   const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
-  const toggleTheme = useAppStore((s) => s.toggleTheme);
-  const setActiveRolePreview = useAppStore((s) => s.setActiveRolePreview);
-  const updateSettings = useAppStore((s) => s.updateSettings);
-  const resetDemoData = useAppStore((s) => s.resetDemoData);
+  const toggleTheme = useWorkspaceAction((s) => s.toggleTheme);
+  const setActiveRolePreview = useWorkspaceAction((s) => s.setActiveRolePreview);
+  const updateSettings = useWorkspaceAction((s) => s.updateSettings);
+  const resetDemoData = useWorkspaceAction((s) => s.resetDemoData);
   const addToast = useAppStore((s) => s.addToast);
 
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
@@ -118,12 +125,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const workspaceMenuRef = useRef<HTMLDivElement | null>(null);
   const notifMenuRef = useRef<HTMLDivElement | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const mobileNavTriggerRef = useRef<HTMLButtonElement>(null);
+  const commandTriggerRef = useRef<HTMLButtonElement>(null);
 
   const canManageSettings = canPerformAction(settings.activeRolePreview, 'manage_settings');
   const canManageBackups = canPerformAction(settings.activeRolePreview, 'manage_backups_and_reset');
 
   useEffect(() => {
-    if (!workspaceMenuOpen && !notifMenuOpen && !profileMenuOpen && !mobileNavOpen) return;
+    if (!workspaceMenuOpen && !notifMenuOpen && !profileMenuOpen) return;
     const handlePointerDown = (e: MouseEvent) => {
       const target = e.target as Node;
       if (workspaceMenuOpen && workspaceMenuRef.current && !workspaceMenuRef.current.contains(target)) {
@@ -138,10 +147,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        const active = document.activeElement;
+        for (const menu of [workspaceMenuRef.current, notifMenuRef.current, profileMenuRef.current]) {
+          if (active && menu?.contains(active)) {
+            menu.querySelector('button')?.focus({ preventScroll: true });
+          }
+        }
         setWorkspaceMenuOpen(false);
         setNotifMenuOpen(false);
         setProfileMenuOpen(false);
-        if (mobileNavOpen) setMobileNavOpen(false);
       }
     };
     document.addEventListener('mousedown', handlePointerDown);
@@ -150,10 +164,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       document.removeEventListener('mousedown', handlePointerDown);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [workspaceMenuOpen, notifMenuOpen, profileMenuOpen, mobileNavOpen, setMobileNavOpen]);
+  }, [workspaceMenuOpen, notifMenuOpen, profileMenuOpen]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+
+    const desktop = window.matchMedia('(min-width: 64rem)');
+    const closeOnDesktop = () => {
+      if (desktop.matches) setMobileNavOpen(false);
+    };
+    closeOnDesktop();
+    desktop.addEventListener('change', closeOnDesktop);
+    return () => desktop.removeEventListener('change', closeOnDesktop);
+  }, [mobileNavOpen, setMobileNavOpen]);
 
   const collapsed = settings.sidebarCollapsed;
   const currentTitle = ROUTE_TITLES[pathname] || 'Executive Workspace';
+  const compactTitle = NAV_GROUPS.flatMap((group) => group.items).find((item) => item.href === pathname)?.label ?? currentTitle;
 
   // Build live operational alerts from actual store data
   const lowStockCount = products.filter((p) => p.status === 'Low Stock').length;
@@ -262,6 +289,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.href}
                     href={item.href}
+                    aria-current={active ? 'page' : undefined}
                     onClick={() => setMobileNavOpen(false)}
                     title={isIconOnly ? item.label : undefined}
                     className={`flex items-center ${
@@ -272,7 +300,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         : 'text-ink-secondary hover:text-ink hover:bg-surface-hover'
                     }`}
                   >
-                    <Icon className="w-4 h-4 shrink-0" />
+                    <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
                     {!isIconOnly && <span className="ml-3 truncate">{item.label}</span>}
                   </Link>
                 );
@@ -308,6 +336,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center justify-between gap-2">
             <Link
               href="/dashboard/settings"
+              onClick={isMobile ? () => setMobileNavOpen(false) : undefined}
               className={`flex items-center gap-3 p-2 rounded-lg hover:bg-surface-hover transition-colors min-w-0 flex-1 ${
                 isIconOnly ? 'justify-center' : ''
               }`}
@@ -315,7 +344,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               <UserAvatar
                 name={settings.personalName}
-                src="/images/avatar_claire_vance_1794569123724.jpg"
+                src={profileAvatar}
                 size="sm"
               />
               {!isIconOnly && (
@@ -353,6 +382,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex bg-surface text-ink">
+      <a
+        href="#dashboard-main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-accent-strong focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+      >
+        Skip to main content
+      </a>
       {/* Desktop Sidebar */}
       <aside
         className={`hidden lg:block shrink-0 sticky top-0 h-screen self-start transition-all duration-150 no-print ${
@@ -364,47 +399,47 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Slide-Out Drawer */}
       {mobileNavOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex">
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-[1px]"
-            onClick={() => setMobileNavOpen(false)}
-            aria-hidden="true"
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Mobile Navigation"
-            className="relative z-10 w-[260px] h-full"
-          >
+        <LayoutDialog
+          label="Mobile Navigation"
+          onDismiss={() => setMobileNavOpen(false)}
+          returnFocusRef={mobileNavTriggerRef}
+          className="justify-start"
+        >
+          <div className="relative h-full w-[260px]">
             <button
               type="button"
               onClick={() => setMobileNavOpen(false)}
               aria-label="Close navigation menu"
-              className="absolute top-4 right-3 z-20 p-2 rounded-lg text-ink-muted hover:bg-surface-hover"
+              className="absolute right-1.5 top-2 z-20 grid size-10 place-items-center rounded-lg text-ink-secondary hover:bg-surface-hover"
             >
               <X className="w-4 h-4" />
             </button>
             {renderSidebarContent(true)}
           </div>
-        </div>
+        </LayoutDialog>
       )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Topbar */}
-        <header className="sticky top-0 z-30 h-16 px-4 md:px-6 lg:px-8 bg-surface-chrome/95 backdrop-blur-md border-b border-line flex items-center justify-between gap-4 no-print">
+        <header className="no-print sticky top-0 z-30 flex h-16 items-center justify-between gap-2 border-b border-line bg-surface-chrome/95 px-3 backdrop-blur-md sm:gap-4 sm:px-4 md:px-6 lg:px-8">
           {/* Left: Mobile Menu + Breadcrumbs */}
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <button
+              ref={mobileNavTriggerRef}
               type="button"
-              onClick={() => setMobileNavOpen(true)}
+              onClick={(event) => {
+                event.currentTarget.focus({ preventScroll: true });
+                setMobileNavOpen(true);
+              }}
               aria-label="Open navigation menu"
-              className="lg:hidden p-2 rounded-lg text-ink-secondary hover:bg-surface-hover"
+              aria-haspopup="dialog"
+              className="grid size-10 shrink-0 place-items-center rounded-lg text-ink-secondary hover:bg-surface-hover sm:size-11 lg:hidden"
             >
               <Menu className="w-5 h-5" />
             </button>
 
-            <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs min-w-0">
+            <nav aria-label="Breadcrumb" className="flex min-w-0 items-center gap-2 text-caption">
               <Link
                 href="/"
                 className="text-ink-muted hover:text-ink transition-colors hidden sm:inline whitespace-nowrap"
@@ -412,23 +447,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 Aurelix
               </Link>
               <span aria-hidden="true" className="text-ink-muted hidden sm:inline">/</span>
-              <span className="font-semibold text-ink truncate">
-                {currentTitle}
+              <span className="truncate font-semibold text-ink" aria-current="page">
+                <span className="min-[400px]:hidden">{compactTitle}</span>
+                <span className="hidden min-[400px]:inline">{currentTitle}</span>
               </span>
             </nav>
           </div>
 
           {/* Right Controls */}
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2.5">
             {/* Global Search / Command Palette Trigger */}
             <button
+              ref={commandTriggerRef}
               type="button"
-              onClick={() => setCommandPaletteOpen(true)}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-raised border border-line text-xs text-ink-muted hover:bg-surface-hover transition-colors"
+              onClick={(event) => {
+                event.currentTarget.focus({ preventScroll: true });
+                setCommandPaletteOpen(true);
+              }}
+              aria-label="Search or jump to..."
+              aria-keyshortcuts="Control+K Meta+K"
+              aria-haspopup="dialog"
+              className="flex size-10 items-center justify-center gap-2.5 rounded-lg border border-line bg-surface-raised text-caption text-ink-secondary transition-colors hover:bg-surface-hover hover:text-ink sm:size-11 lg:h-11 lg:w-auto lg:px-3"
             >
-              <Search className="w-3.5 h-3.5 text-ink-muted" />
-              <span className="hidden md:inline">Search or jump to...</span>
-              <kbd className="hidden sm:inline-block px-2 py-1 text-xs tabular-nums bg-surface-chrome rounded border border-line text-ink-muted">
+              <Search className="size-4" aria-hidden="true" />
+              <span className="hidden lg:inline">Search or jump to...</span>
+              <kbd aria-hidden="true" className="hidden rounded border border-line bg-surface-chrome px-2 py-1 text-xs tabular-nums text-ink-muted xl:inline-block">
                 ⌘K
               </kbd>
             </button>
@@ -439,7 +482,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Notifications Menu */}
-            <div ref={notifMenuRef} className="relative">
+            <div ref={notifMenuRef} className="sm:relative">
               <button
                 type="button"
                 aria-expanded={notifMenuOpen}
@@ -448,13 +491,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   setProfileMenuOpen(false);
                 }}
                 aria-label="View notifications"
-                className="p-2 rounded-lg border border-line bg-surface-raised text-ink-secondary hover:bg-surface-hover transition-colors"
+                className={TOPBAR_ICON_BUTTON}
               >
-                <Bell className="w-4 h-4" />
+                <Bell className="w-4 h-4" aria-hidden="true" />
               </button>
 
               {notifMenuOpen && (
-                <div className="absolute right-0 mt-2 w-80 rounded-xl bg-surface-raised border border-line shadow-xl p-3 z-40 space-y-3">
+                <div className="absolute inset-x-3 top-full z-40 mt-2 max-h-[calc(100dvh-5rem)] space-y-3 overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface-raised p-3 shadow-xl sm:left-auto sm:right-0 sm:w-80">
                   <div className="flex items-center justify-between border-b border-line-subtle pb-2">
                     <span className="text-xs font-bold text-ink">
                       Operational Alerts
@@ -467,7 +510,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       View all activity
                     </Link>
                   </div>
-                  <div className="space-y-2 text-xs">
+                  <div className="space-y-2 text-caption">
                     {recentHighValue && (
                       <button
                         type="button"
@@ -539,12 +582,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onClick={toggleTheme}
               aria-label={`Switch to ${settings.theme === 'dark' ? 'light' : 'dark'} mode`}
               title={`Switch to ${settings.theme === 'dark' ? 'light' : 'dark'} mode`}
-              className="p-2 rounded-lg border border-line bg-surface-raised text-ink-secondary hover:bg-surface-hover transition-colors"
+              className={TOPBAR_ICON_BUTTON}
             >
               {settings.theme === 'dark' ? (
-                <Sun className="w-4 h-4 text-amber-400" />
+                <Sun className="w-4 h-4 text-warning" aria-hidden="true" />
               ) : (
-                <Moon className="w-4 h-4 text-ink-secondary" />
+                <Moon className="w-4 h-4" aria-hidden="true" />
               )}
             </button>
 
@@ -558,14 +601,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   setNotifMenuOpen(false);
                 }}
                 aria-label="Open user menu"
-                className="flex items-center gap-2 p-1 rounded-lg hover:bg-surface-hover transition-colors"
+                className="flex h-10 min-w-10 items-center justify-center gap-1 rounded-lg p-1 transition-colors hover:bg-surface-hover sm:h-11 sm:min-w-11"
               >
                 <UserAvatar
                   name={settings.personalName}
-                  src="/images/avatar_claire_vance_1794569123724.jpg"
+                  src={profileAvatar}
                   size="sm"
                 />
-                <ChevronDown className="w-3.5 h-3.5 text-ink-muted hidden sm:block" />
+                <ChevronDown className="w-3.5 h-3.5 text-ink-muted hidden sm:block" aria-hidden="true" />
               </button>
 
               {profileMenuOpen && (
@@ -628,19 +671,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Mobile/Tablet Date Range Bar */}
         <div className="xl:hidden px-4 md:px-6 lg:px-8 py-2 bg-surface-chrome border-b border-line flex flex-wrap items-center justify-between gap-2 no-print">
-          <span className="text-xs font-medium text-ink-muted whitespace-nowrap">
+          <span className="text-caption font-medium text-ink-muted whitespace-nowrap">
             Reporting Window:
           </span>
           <DateRangePicker popoverAlign="responsive" />
         </div>
 
         {/* Page Viewport */}
-        <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-[1600px] w-full mx-auto space-y-6">
+        <main id="dashboard-main" tabIndex={-1} className="mx-auto w-full max-w-[1600px] flex-1 scroll-mt-16 space-y-6 p-4 md:p-6 lg:p-8">
           {children}
         </main>
       </div>
 
-      <CommandPalette />
+      <CommandPalette triggerRef={commandTriggerRef} />
       <ConfirmDialog
         open={confirmResetOpen}
         onClose={() => setConfirmResetOpen(false)}

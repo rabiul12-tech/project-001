@@ -194,16 +194,7 @@ export default function ActivityFeedPage() {
             {paginatedActivities.map((act) => (
               <div
                 key={act.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedEvent(act)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setSelectedEvent(act);
-                  }
-                }}
-                className="p-4 sm:px-6 hover:bg-surface-hover/50 cursor-pointer transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60"
+                className="relative p-4 sm:px-6 hover:bg-surface-hover/50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
               >
                 <div className="flex items-start gap-4">
                   <UserAvatar name={act.actorName} size="md" />
@@ -234,11 +225,9 @@ export default function ActivityFeedPage() {
                   </span>
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedEvent(act);
-                    }}
-                    className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs bg-surface-sunken text-ink-secondary hover:bg-blue-600 hover:text-white transition-colors"
+                    aria-label={`Details for ${act.action} · ${act.targetName}`}
+                    onClick={() => setSelectedEvent(act)}
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs bg-surface-sunken text-ink-secondary hover:bg-blue-600 hover:text-white transition-colors cursor-pointer after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-accent"
                   >
                     <Eye className="w-3 h-3" />
                     <span>Details</span>

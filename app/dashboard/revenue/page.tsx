@@ -11,6 +11,7 @@ import {
   enrichCustomersWithMetrics,
   filterOrdersByWindow,
   resolveDateWindow,
+  realizedNetCents,
   toCents,
   fromCents,
 } from '@/lib/calculations/analytics';
@@ -92,9 +93,7 @@ export default function RevenueIntelligencePage() {
     for (const o of periodOrders) {
       groups[o.paymentStatus].count += 1;
       groups[o.paymentStatus].totalCents += toCents(o.totalAmount);
-      if (o.paymentStatus === 'Paid' || o.paymentStatus === 'Refunded') {
-        groups[o.paymentStatus].netCents += Math.max(0, toCents(o.totalAmount) - toCents(o.refundedAmount));
-      }
+      groups[o.paymentStatus].netCents += realizedNetCents(o);
     }
     return {
       Paid: {
@@ -141,15 +140,7 @@ export default function RevenueIntelligencePage() {
         } else if (sortField === 'totalAmount') {
           diff = a.totalAmount - b.totalAmount;
         } else {
-          const netA =
-            a.paymentStatus === 'Paid' || a.paymentStatus === 'Refunded'
-              ? Math.max(0, a.totalAmount - a.refundedAmount)
-              : 0;
-          const netB =
-            b.paymentStatus === 'Paid' || b.paymentStatus === 'Refunded'
-              ? Math.max(0, b.totalAmount - b.refundedAmount)
-              : 0;
-          diff = netA - netB;
+          diff = realizedNetCents(a) - realizedNetCents(b);
         }
         return sortAsc ? diff : -diff;
       });
@@ -187,10 +178,6 @@ export default function RevenueIntelligencePage() {
       'Net Realized Revenue',
     ];
     const rows = filteredTransactions.map((o) => {
-      const net =
-        o.paymentStatus === 'Paid' || o.paymentStatus === 'Refunded'
-          ? Math.max(0, Math.round((o.totalAmount - o.refundedAmount) * 100) / 100)
-          : 0;
       return [
         o.orderNumber,
         o.orderDate.slice(0, 10),
@@ -202,7 +189,7 @@ export default function RevenueIntelligencePage() {
         o.taxAmount,
         o.totalAmount,
         o.refundedAmount,
-        net,
+        fromCents(realizedNetCents(o)),
       ];
     });
     triggerBrowserDownload(
@@ -233,7 +220,7 @@ export default function RevenueIntelligencePage() {
       />
 
       {/* Primary Financial Reconciliation Strip */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KPIStatCard
           label="Gross Revenue (Pre-Discount)"
           value={formatCurrency(cur.grossRevenue, settings.currency, settings.numberFormat)}
@@ -472,7 +459,7 @@ export default function RevenueIntelligencePage() {
               <tr className="border-b border-line bg-surface-sunken/60 text-caption font-semibold text-ink-muted">
                 <th scope="col" className="py-3 px-4">Order #</th>
                 <th scope="col" className="py-3 px-4">Account</th>
-                <th scope="col" className="py-3 px-4">
+                <th scope="col" aria-sort={sortField === 'orderDate' ? (sortAsc ? 'ascending' : 'descending') : undefined} className="py-3 px-4">
                   <button
                     type="button"
                     onClick={() => handleSort('orderDate')}
@@ -485,7 +472,7 @@ export default function RevenueIntelligencePage() {
                 <th scope="col" className="py-3 px-4">Status</th>
                 <th scope="col" className="py-3 px-4 text-right">Subtotal</th>
                 <th scope="col" className="py-3 px-4 text-right">Discount / Tax</th>
-                <th scope="col" className="py-3 px-4 text-right">
+                <th scope="col" aria-sort={sortField === 'totalAmount' ? (sortAsc ? 'ascending' : 'descending') : undefined} className="py-3 px-4 text-right">
                   <button
                     type="button"
                     onClick={() => handleSort('totalAmount')}
@@ -495,7 +482,7 @@ export default function RevenueIntelligencePage() {
                     <ArrowUpDown className="w-3 h-3" />
                   </button>
                 </th>
-                <th scope="col" className="py-3 px-4 text-right">
+                <th scope="col" aria-sort={sortField === 'netRealized' ? (sortAsc ? 'ascending' : 'descending') : undefined} className="py-3 px-4 text-right">
                   <button
                     type="button"
                     onClick={() => handleSort('netRealized')}
@@ -517,10 +504,7 @@ export default function RevenueIntelligencePage() {
                 </tr>
               ) : (
                 paginatedTransactions.map((ord) => {
-                  const netRealized =
-                    ord.paymentStatus === 'Paid' || ord.paymentStatus === 'Refunded'
-                      ? fromCents(Math.max(0, toCents(ord.totalAmount) - toCents(ord.refundedAmount)))
-                      : 0;
+                  const netRealized = fromCents(realizedNetCents(ord));
                   return (
                     <tr
                       key={ord.id}
@@ -699,10 +683,7 @@ export default function RevenueIntelligencePage() {
                 <span>Net Realized Revenue</span>
                 <span className="tabular-nums">
                   {formatCurrency(
-                    selectedOrder.paymentStatus === 'Paid' ||
-                      selectedOrder.paymentStatus === 'Refunded'
-                      ? Math.max(0, selectedOrder.totalAmount - selectedOrder.refundedAmount)
-                      : 0,
+                    fromCents(realizedNetCents(selectedOrder)),
                     settings.currency,
                     settings.numberFormat
                   )}

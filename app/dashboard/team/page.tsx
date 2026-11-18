@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useWorkspaceAction } from '@/hooks/useWorkspaceAction';
 import {
   teamMemberFormSchema,
   TeamMemberFormValues,
@@ -58,10 +59,10 @@ export default function TeamManagementPage() {
   const team = useAppStore((s) => s.team);
   const activities = useAppStore((s) => s.activities);
   const settings = useAppStore((s) => s.settings);
-  const addTeamMember = useAppStore((s) => s.addTeamMember);
-  const updateTeamMember = useAppStore((s) => s.updateTeamMember);
-  const removeTeamMember = useAppStore((s) => s.removeTeamMember);
-  const setActiveRolePreview = useAppStore((s) => s.setActiveRolePreview);
+  const addTeamMember = useWorkspaceAction((s) => s.addTeamMember);
+  const updateTeamMember = useWorkspaceAction((s) => s.updateTeamMember);
+  const removeTeamMember = useWorkspaceAction((s) => s.removeTeamMember);
+  const setActiveRolePreview = useWorkspaceAction((s) => s.setActiveRolePreview);
   const addToast = useAppStore((s) => s.addToast);
   const canManageTeam = canPerformAction(settings.activeRolePreview, 'manage_team');
 
@@ -125,7 +126,7 @@ export default function TeamManagementPage() {
     setModalOpen(true);
   };
 
-  const onSubmitForm = (values: TeamMemberFormValues) => {
+  const onSubmitForm = async (values: TeamMemberFormValues) => {
     if (!canManageTeam) {
       addToast(
         'Permission restricted',
@@ -135,10 +136,10 @@ export default function TeamManagementPage() {
       return;
     }
     if (editingMember) {
-      updateTeamMember(editingMember.id, values);
+      await updateTeamMember(editingMember.id, values);
       setModalOpen(false);
     } else {
-      const created = addTeamMember(values);
+      const created = await addTeamMember(values);
       if (created) setModalOpen(false);
     }
   };
@@ -175,11 +176,16 @@ export default function TeamManagementPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 p-1 rounded-xl bg-surface-sunken border border-line shrink-0">
+        <div
+          role="group"
+          aria-label="Simulated team role"
+          className="flex w-fit max-w-full flex-wrap items-center gap-1 p-1 rounded-xl bg-surface-sunken border border-line sm:gap-2"
+        >
           {(['Owner', 'Admin', 'Analyst', 'Viewer'] as const).map((r) => (
             <button
               key={r}
               type="button"
+              aria-pressed={settings.activeRolePreview === r}
               onClick={() => setActiveRolePreview(r)}
               className={`px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
                 settings.activeRolePreview === r
@@ -401,41 +407,48 @@ export default function TeamManagementPage() {
       >
         <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-4 text-xs">
           <div>
-            <label className="block font-medium text-ink-secondary mb-1">
+            <label htmlFor="team-member-name" className="block font-medium text-ink-secondary mb-1">
               Full Name
             </label>
             <input
               type="text"
+              id="team-member-name"
+              aria-invalid={Boolean(errors.name)}
+              aria-describedby={errors.name ? 'team-member-name-error' : undefined}
               {...register('name')}
               placeholder="Soren Bergstrom"
               className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
             />
             {errors.name && (
-              <p className="text-danger text-xs mt-1">{errors.name.message}</p>
+              <p id="team-member-name-error" role="alert" className="text-danger text-xs mt-1">{errors.name.message}</p>
             )}
           </div>
 
           <div>
-            <label className="block font-medium text-ink-secondary mb-1">
+            <label htmlFor="team-member-email" className="block font-medium text-ink-secondary mb-1">
               Corporate Email
             </label>
             <input
               type="email"
+              id="team-member-email"
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={errors.email ? 'team-member-email-error' : undefined}
               {...register('email')}
               placeholder="soren.bergstrom@aurelix.io"
               className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
             />
             {errors.email && (
-              <p className="text-danger text-xs mt-1">{errors.email.message}</p>
+              <p id="team-member-email-error" role="alert" className="text-danger text-xs mt-1">{errors.email.message}</p>
             )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="team-member-role" className="block font-medium text-ink-secondary mb-1">
                 Simulated Role
               </label>
               <select
+                id="team-member-role"
                 {...register('role')}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
               >
@@ -447,30 +460,36 @@ export default function TeamManagementPage() {
             </div>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="team-member-title" className="block font-medium text-ink-secondary mb-1">
                 Job Title
               </label>
               <input
                 type="text"
+                id="team-member-title"
+                aria-invalid={Boolean(errors.title)}
+                aria-describedby={errors.title ? 'team-member-title-error' : undefined}
                 {...register('title')}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
               />
               {errors.title && (
-                <p className="text-danger text-xs mt-1">{errors.title.message}</p>
+                <p id="team-member-title-error" role="alert" className="text-danger text-xs mt-1">{errors.title.message}</p>
               )}
             </div>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="team-member-department" className="block font-medium text-ink-secondary mb-1">
                 Department
               </label>
               <input
                 type="text"
+                id="team-member-department"
+                aria-invalid={Boolean(errors.department)}
+                aria-describedby={errors.department ? 'team-member-department-error' : undefined}
                 {...register('department')}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
               />
               {errors.department && (
-                <p className="text-danger text-xs mt-1">{errors.department.message}</p>
+                <p id="team-member-department-error" role="alert" className="text-danger text-xs mt-1">{errors.department.message}</p>
               )}
             </div>
           </div>
@@ -496,8 +515,8 @@ export default function TeamManagementPage() {
       <ConfirmDialog
         open={Boolean(removeTarget)}
         onClose={() => setRemoveTarget(null)}
-        onConfirm={() => {
-          if (removeTarget) removeTeamMember(removeTarget.id);
+        onConfirm={async () => {
+          if (removeTarget) await removeTeamMember(removeTarget.id);
         }}
         title={`Remove ${removeTarget?.name}?`}
         description="Removes this demo member from the simulated workspace roster."

@@ -12,6 +12,8 @@ import {
   Info,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useWorkspaceAction } from '@/hooks/useWorkspaceAction';
+import type { StorageWriteResult } from '@/lib/storage/repository';
 import { triggerBrowserDownload } from '@/lib/export/exporter';
 import { workspaceSettingsSchema } from '@/lib/validation/schemas';
 import { canPerformAction, getPermissionDeniedMessage } from '@/lib/permissions';
@@ -27,7 +29,7 @@ import {
 interface SettingsPreferencesFormProps {
   settings: WorkspaceSettings;
   canManageSettings: boolean;
-  onSavePreferences: (next: WorkspaceSettings) => boolean;
+  onSavePreferences: (next: WorkspaceSettings) => Promise<StorageWriteResult>;
   onSetTheme: (theme: 'light' | 'dark') => void;
   onSetSidebarCollapsed: (collapsed: boolean) => void;
   onDenied: () => void;
@@ -35,12 +37,12 @@ interface SettingsPreferencesFormProps {
 
 export default function SettingsPage() {
   const settings = useAppStore((s) => s.settings);
-  const updateSettings = useAppStore((s) => s.updateSettings);
-  const setTheme = useAppStore((s) => s.setTheme);
-  const setSidebarCollapsed = useAppStore((s) => s.setSidebarCollapsed);
+  const updateSettings = useWorkspaceAction((s) => s.updateSettings);
+  const setTheme = useWorkspaceAction((s) => s.setTheme);
+  const setSidebarCollapsed = useWorkspaceAction((s) => s.setSidebarCollapsed);
   const getExportSnapshot = useAppStore((s) => s.getExportSnapshot);
-  const importBackupJson = useAppStore((s) => s.importBackupJson);
-  const resetDemoData = useAppStore((s) => s.resetDemoData);
+  const importBackupJson = useWorkspaceAction((s) => s.importBackupJson);
+  const resetDemoData = useWorkspaceAction((s) => s.resetDemoData);
   const addToast = useAppStore((s) => s.addToast);
 
   const canManageSettings = canPerformAction(settings.activeRolePreview, 'manage_settings');
@@ -58,7 +60,6 @@ export default function SettingsPage() {
     settings.companyDomain,
     settings.companyLogoText,
     settings.currency,
-    settings.language,
     settings.dateFormat,
     settings.numberFormat,
     settings.notifications.highValueOrders,
@@ -68,13 +69,14 @@ export default function SettingsPage() {
   ].join('|');
 
   const handleSavePreferences = (next: WorkspaceSettings) => {
-    const parsed = workspaceSettingsSchema.safeParse(next);
-    if (!parsed.success) {
-      addToast('Validation failed', parsed.error.issues[0]?.message || 'Check your input fields.', 'error');
-      return false;
-    }
-    updateSettings(parsed.data);
-    return true;
+    const { notifications, ...preferences } = next;
+    const changes = Object.fromEntries(Object.entries(preferences).filter(
+      ([key, value]) => value !== settings[key as keyof typeof preferences]
+    ));
+    const notificationChanges = Object.fromEntries(Object.entries(notifications).filter(
+      ([key, value]) => value !== settings.notifications[key as keyof typeof notifications]
+    ));
+    return updateSettings({ ...changes, notifications: notificationChanges });
   };
 
   const handleExportBackup = () => {
@@ -110,9 +112,9 @@ export default function SettingsPage() {
       return;
     }
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const content = String(event.target?.result || '');
-      const res = importBackupJson(content);
+      const res = await importBackupJson(content);
       if (!res.ok) {
         setImportError(res.error || 'Backup file validation failed.');
       }
@@ -184,6 +186,7 @@ export default function SettingsPage() {
           </button>
 
           <input
+            id="settings-backup-file"
             ref={fileInputRef}
             type="file"
             accept=".json,application/json"
@@ -262,7 +265,6 @@ function SettingsPreferencesForm({
   const [companyLogoText, setCompanyLogoText] = useState(settings.companyLogoText);
 
   const [currency, setCurrency] = useState<CurrencyCode>(settings.currency);
-  const [language, setLanguage] = useState(settings.language);
   const [dateFormat, setDateFormat] = useState<DateFormatOption>(settings.dateFormat);
   const [numberFormat, setNumberFormat] = useState<NumberFormatOption>(settings.numberFormat);
 
@@ -273,9 +275,11 @@ function SettingsPreferencesForm({
   );
   const [weeklyDigest, setWeeklyDigest] = useState(settings.notifications.weeklyDigest);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const handleSaveSettings = (e: React.FormEvent) => {
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (!canManageSettings) {
       onDenied();
       return;
@@ -289,7 +293,6 @@ function SettingsPreferencesForm({
       companyDomain: companyDomain.trim(),
       companyLogoText: companyLogoText.trim().slice(0, 4).toUpperCase() || 'AX',
       currency,
-      language,
       dateFormat,
       numberFormat,
       notifications: {
@@ -305,13 +308,21 @@ function SettingsPreferencesForm({
       return;
     }
     setValidationError(null);
-    onSavePreferences(parsed.data);
+    setSaving(true);
+    try {
+      const result = await onSavePreferences(parsed.data);
+      if (!result.ok) {
+        setValidationError(`Preferences were not saved. ${result.error ?? 'Retry when browser storage is available.'}`);
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
       <form onSubmit={handleSaveSettings} className="space-y-6 text-xs">
         {validationError && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-danger">
+          <div role="alert" className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-danger">
             {validationError}
           </div>
         )}
@@ -329,10 +340,11 @@ function SettingsPreferencesForm({
 
             <div className="space-y-3">
               <div>
-                <label className="block font-medium text-ink-secondary mb-1">
+                <label htmlFor="settings-full-name" className="block font-medium text-ink-secondary mb-1">
                   Full Name
                 </label>
                 <input
+                  id="settings-full-name"
                   type="text"
                   value={personalName}
                   onChange={(e) => setPersonalName(e.target.value)}
@@ -341,10 +353,11 @@ function SettingsPreferencesForm({
               </div>
 
               <div>
-                <label className="block font-medium text-ink-secondary mb-1">
+                <label htmlFor="settings-corporate-email" className="block font-medium text-ink-secondary mb-1">
                   Corporate Email
                 </label>
                 <input
+                  id="settings-corporate-email"
                   type="email"
                   value={personalEmail}
                   onChange={(e) => setPersonalEmail(e.target.value)}
@@ -353,10 +366,11 @@ function SettingsPreferencesForm({
               </div>
 
               <div>
-                <label className="block font-medium text-ink-secondary mb-1">
+                <label htmlFor="settings-executive-title" className="block font-medium text-ink-secondary mb-1">
                   Executive Title
                 </label>
                 <input
+                  id="settings-executive-title"
                   type="text"
                   value={personalTitle}
                   onChange={(e) => setPersonalTitle(e.target.value)}
@@ -378,10 +392,11 @@ function SettingsPreferencesForm({
 
             <div className="space-y-3">
               <div>
-                <label className="block font-medium text-ink-secondary mb-1">
+                <label htmlFor="settings-workspace-name" className="block font-medium text-ink-secondary mb-1">
                   Workspace Name
                 </label>
                 <input
+                  id="settings-workspace-name"
                   type="text"
                   value={workspaceName}
                   onChange={(e) => setWorkspaceName(e.target.value)}
@@ -391,10 +406,11 @@ function SettingsPreferencesForm({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-medium text-ink-secondary mb-1">
+                  <label htmlFor="settings-company-domain" className="block font-medium text-ink-secondary mb-1">
                     Company Domain
                   </label>
                   <input
+                    id="settings-company-domain"
                     type="text"
                     value={companyDomain}
                     onChange={(e) => setCompanyDomain(e.target.value)}
@@ -403,10 +419,11 @@ function SettingsPreferencesForm({
                 </div>
 
                 <div>
-                  <label className="block font-medium text-ink-secondary mb-1">
+                  <label htmlFor="settings-company-monogram" className="block font-medium text-ink-secondary mb-1">
                     Company Logo Monogram
                   </label>
                   <input
+                    id="settings-company-monogram"
                     type="text"
                     maxLength={4}
                     value={companyLogoText}
@@ -439,10 +456,11 @@ function SettingsPreferencesForm({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="settings-display-currency" className="block font-medium text-ink-secondary mb-1">
                 Display Currency
               </label>
               <select
+                id="settings-display-currency"
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
@@ -455,31 +473,17 @@ function SettingsPreferencesForm({
               </select>
             </div>
 
-            <div>
-              <label className="block font-medium text-ink-secondary mb-1">
-                Language Display
-              </label>
-              <select
-                value={language}
-                onChange={(e) =>
-                  setLanguage(
-                    e.target.value as 'English (US)' | 'English (UK)' | 'Deutsch' | 'Français'
-                  )
-                }
-                className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line"
-              >
-                <option value="English (US)">English (US)</option>
-                <option value="English (UK)">English (UK)</option>
-                <option value="Deutsch">Deutsch</option>
-                <option value="Français">Français</option>
-              </select>
-            </div>
+            <dl>
+              <dt className="font-medium text-ink-secondary mb-1">Interface Language</dt>
+              <dd className="text-ink-muted leading-relaxed">The workspace interface is available in English.</dd>
+            </dl>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="settings-date-format" className="block font-medium text-ink-secondary mb-1">
                 Date Format
               </label>
               <select
+                id="settings-date-format"
                 value={dateFormat}
                 onChange={(e) => setDateFormat(e.target.value as DateFormatOption)}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
@@ -491,10 +495,11 @@ function SettingsPreferencesForm({
             </div>
 
             <div>
-              <label className="block font-medium text-ink-secondary mb-1">
+              <label htmlFor="settings-number-locale" className="block font-medium text-ink-secondary mb-1">
                 Number Formatting Locale
               </label>
               <select
+                id="settings-number-locale"
                 value={numberFormat}
                 onChange={(e) => setNumberFormat(e.target.value as NumberFormatOption)}
                 className="w-full px-3 py-2 rounded-lg bg-surface-sunken border border-line tabular-nums"
@@ -549,14 +554,16 @@ function SettingsPreferencesForm({
 
             <div className="pt-2 flex items-center justify-between">
               <div>
-                <div className="font-semibold text-ink">
+                <label htmlFor="settings-compact-sidebar" className="block font-semibold text-ink">
                   Compact Icon-Only Sidebar
-                </div>
-                <div className="text-ink-muted">
+                </label>
+                <div id="settings-compact-sidebar-description" className="text-ink-muted">
                   Collapse desktop navigation to 72px width
                 </div>
               </div>
               <input
+                id="settings-compact-sidebar"
+                aria-describedby="settings-compact-sidebar-description"
                 type="checkbox"
                 checked={settings.sidebarCollapsed}
                 onChange={(e) => onSetSidebarCollapsed(e.target.checked)}
@@ -579,6 +586,7 @@ function SettingsPreferencesForm({
               <label className="flex items-center justify-between cursor-pointer">
                 <span>High-Value Order Settlements (≥ $5,000)</span>
                 <input
+                  id="settings-notify-high-value-orders"
                   type="checkbox"
                   checked={highValueOrders}
                   onChange={(e) => setHighValueOrders(e.target.checked)}
@@ -589,6 +597,7 @@ function SettingsPreferencesForm({
               <label className="flex items-center justify-between cursor-pointer">
                 <span>Simulated Refund & Credit Memo Alerts</span>
                 <input
+                  id="settings-notify-refunds"
                   type="checkbox"
                   checked={refundAlerts}
                   onChange={(e) => setRefundAlerts(e.target.checked)}
@@ -599,6 +608,7 @@ function SettingsPreferencesForm({
               <label className="flex items-center justify-between cursor-pointer">
                 <span>Low Inventory Threshold Warnings (≤ 14 units)</span>
                 <input
+                  id="settings-notify-low-inventory"
                   type="checkbox"
                   checked={lowInventoryWarnings}
                   onChange={(e) => setLowInventoryWarnings(e.target.checked)}
@@ -609,6 +619,7 @@ function SettingsPreferencesForm({
               <label className="flex items-center justify-between cursor-pointer">
                 <span>Weekly Executive KPI Digest</span>
                 <input
+                  id="settings-notify-weekly-digest"
                   type="checkbox"
                   checked={weeklyDigest}
                   onChange={(e) => setWeeklyDigest(e.target.checked)}
@@ -622,12 +633,12 @@ function SettingsPreferencesForm({
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={!canManageSettings}
+            disabled={!canManageSettings || saving}
             title={!canManageSettings ? getPermissionDeniedMessage(settings.activeRolePreview, 'manage_settings') : undefined}
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-accent-strong hover:bg-accent-strong-hover text-white font-semibold shadow-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
-            <span>Save All Workspace Preferences</span>
+            <span>{saving ? 'Saving…' : 'Save All Workspace Preferences'}</span>
           </button>
         </div>
       </form>

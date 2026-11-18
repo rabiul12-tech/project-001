@@ -27,7 +27,7 @@ import { useAppStore } from '@/stores/useAppStore';
 describe('AURELIX Analytics — Comprehensive Business Logic & Workflow Suite (25 Tests)', () => {
   beforeEach(() => {
     window.localStorage.clear();
-    useAppStore.getState().resetDemoData();
+    useAppStore.getState().hydrateStore();
   });
 
   // 1. Initial demo data is seeded correctly

@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   Download,
   Plus,
@@ -10,9 +9,9 @@ import {
   RotateCcw,
   FileSpreadsheet,
   Users,
-  ShoppingCart,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useWorkspaceAction } from '@/hooks/useWorkspaceAction';
 import { useNowMs, useTodayLabel } from '@/lib/useClock';
 import {
   buildRevenueTimeSeries,
@@ -46,7 +45,7 @@ const IS_DEV = process.env.NODE_ENV === 'development';
 const ONE_DAY_MS = 86400 * 1000;
 
 const SECONDARY_BUTTON =
-  'inline-flex items-center gap-2 px-3 py-2 rounded-lg text-caption bg-surface-sunken text-ink-secondary hover:bg-surface-hover hover:text-ink transition-colors whitespace-nowrap shrink-0';
+  'inline-flex min-h-9 items-center gap-2 rounded-lg px-3 py-2 text-caption font-medium bg-surface-sunken text-ink-secondary hover:bg-surface-hover hover:text-ink transition-colors';
 
 /** Shared card header: title + subtitle on the left, optional action link on the right. */
 function CardHeader({
@@ -62,7 +61,7 @@ function CardHeader({
     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-x-4 gap-y-3">
       <div className="min-w-0">
         <h2 className="text-heading text-ink">{title}</h2>
-        <p className="text-xs text-ink-muted">{subtitle}</p>
+        <p className="mt-0.5 text-caption text-ink-muted">{subtitle}</p>
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>
@@ -73,7 +72,7 @@ function CardLink({ href, children }: { href: string; children: React.ReactNode 
   return (
     <Link
       href={href}
-      className="text-caption text-accent hover:underline inline-flex items-center gap-1 whitespace-nowrap rounded-sm"
+      className="text-caption text-accent hover:underline inline-flex min-h-8 items-center gap-1 whitespace-nowrap rounded-sm"
     >
       <span>{children}</span>
       <ArrowUpRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -82,7 +81,6 @@ function CardLink({ href, children }: { href: string; children: React.ReactNode 
 }
 
 export default function ExecutiveOverviewPage() {
-  const router = useRouter();
   const orders = useAppStore((s) => s.orders);
   const customers = useAppStore((s) => s.customers);
   const products = useAppStore((s) => s.products);
@@ -92,7 +90,7 @@ export default function ExecutiveOverviewPage() {
   const datePreset = useAppStore((s) => s.datePreset);
   const customStartDate = useAppStore((s) => s.customStartDate);
   const customEndDate = useAppStore((s) => s.customEndDate);
-  const resetDemoData = useAppStore((s) => s.resetDemoData);
+  const resetDemoData = useWorkspaceAction((s) => s.resetDemoData);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const addToast = useAppStore((s) => s.addToast);
 
@@ -179,25 +177,25 @@ export default function ExecutiveOverviewPage() {
     formatCurrency(amount, settings.currency, settings.numberFormat, compact);
 
   return (
-    <div className="space-y-6">
+    <div className="@container space-y-5 sm:space-y-6">
       {/* 1. Welcome Heading with Current Date & Quick Actions */}
       <PageHeader
         title={`Welcome back, ${settings.personalName.split(' ')[0]}`}
-        subtitle={`Executive command center for ${settings.workspaceName}. All KPIs reconcile directly with the active ${dateWindow.days}-day ledger window.`}
+        subtitle={`Revenue, orders and customer acquisition for ${settings.workspaceName}.`}
         meta={todayLabel}
         actions={
           <>
             <button
               type="button"
               onClick={handleExportOverviewCsv}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-surface-raised border border-line text-ink hover:bg-surface-hover transition-colors whitespace-nowrap shrink-0"
+              className="inline-flex min-h-10 items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium bg-surface-raised border border-line text-ink hover:bg-surface-hover transition-colors whitespace-nowrap"
             >
               <Download className="w-4 h-4" aria-hidden="true" />
               <span>Export CSV</span>
             </button>
             <Link
               href="/dashboard/orders?action=new"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white border border-transparent transition-colors whitespace-nowrap shrink-0"
+              className="inline-flex min-h-10 items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-semibold bg-accent-strong hover:bg-accent-strong-hover text-white border border-transparent transition-colors whitespace-nowrap"
             >
               <Plus className="w-4 h-4" aria-hidden="true" />
               <span>New Order</span>
@@ -207,16 +205,12 @@ export default function ExecutiveOverviewPage() {
       />
 
       {/* 2. Quick Actions & Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 rounded-xl bg-surface-raised border border-line">
+      <div className="grid items-center gap-x-4 gap-y-2.5 rounded-xl border border-line bg-surface-raised px-3.5 py-3 sm:px-5 @min-[50rem]:grid-cols-[minmax(0,1fr)_auto]">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-caption font-semibold text-ink mr-2">Quick actions</span>
           <Link href="/dashboard/customers?action=new" className={SECONDARY_BUTTON}>
             <Users className="w-4 h-4 text-accent" aria-hidden="true" />
             <span>Add Customer</span>
-          </Link>
-          <Link href="/dashboard/orders?action=new" className={SECONDARY_BUTTON}>
-            <ShoppingCart className="w-4 h-4 text-success" aria-hidden="true" />
-            <span>Create Order</span>
           </Link>
           <Link href="/dashboard/reports" className={SECONDARY_BUTTON}>
             <FileSpreadsheet className="w-4 h-4 text-warning" aria-hidden="true" />
@@ -246,46 +240,37 @@ export default function ExecutiveOverviewPage() {
         </div>
       </div>
 
-      {/* One 12-column grid for every row: KPIs 3/3/3/3, card rows 8/4.
-          Below xl (content area under ~970px) it becomes 2 columns, below md a single column. */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-6">
-        {/* 3–7. Primary KPIs with comparison deltas */}
-        <div className="xl:col-span-3 grid">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-12 xl:gap-6 [&>section]:min-w-0 [&>section.card]:max-sm:p-4">
+        <section aria-label="Executive metrics" className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 md:col-span-2 sm:gap-4 xl:col-span-12 xl:grid-cols-4 xl:gap-6">
           <KPIStatCard
             label="Net Realized Revenue"
             value={money(cur.netRevenue)}
             delta={deltas.netRevenue}
             secondaryMeta={`Gross ${money(cur.grossRevenue, true)}`}
-            onClick={() => router.push('/dashboard/revenue')}
+            href="/dashboard/revenue"
           />
-        </div>
-        <div className="xl:col-span-3 grid">
           <KPIStatCard
             label="Total Orders"
             value={cur.totalOrdersCount.toLocaleString()}
             delta={deltas.totalOrders}
             secondaryMeta={`AOV ${money(cur.averageOrderValue)}`}
-            onClick={() => router.push('/dashboard/orders')}
+            href="/dashboard/orders"
           />
-        </div>
-        <div className="xl:col-span-3 grid">
           <KPIStatCard
             label="Active Purchasing Accounts"
             value={cur.activeCustomersCount.toLocaleString()}
             delta={deltas.activeCustomers}
             secondaryMeta={`Of ${customers.length} total`}
-            onClick={() => router.push('/dashboard/customers')}
+            href="/dashboard/customers"
           />
-        </div>
-        <div className="xl:col-span-3 grid">
           <KPIStatCard
             label="Session Conversion Rate"
             value={`${cur.conversionRatePercent.toFixed(2)}%`}
             delta={deltas.conversionRate}
             secondaryMeta={`${cur.totalUniqueVisitors.toLocaleString()} visitors`}
-            onClick={() => router.push('/dashboard/analytics')}
+            href="/dashboard/analytics"
           />
-        </div>
+        </section>
 
         {/* 8. Revenue trend */}
         <section className="card md:col-span-2 xl:col-span-8 space-y-4">
@@ -306,7 +291,7 @@ export default function ExecutiveOverviewPage() {
                     type="button"
                     aria-pressed={chartMode === m}
                     onClick={() => setChartMode(m)}
-                    className={`px-3 py-1 text-caption rounded-md capitalize transition-colors ${
+                    className={`min-h-8 px-3 text-caption rounded-md capitalize transition-colors ${
                       chartMode === m
                         ? 'bg-surface-raised text-ink shadow-xs ring-1 ring-line'
                         : 'text-ink-muted hover:text-ink'
@@ -339,7 +324,7 @@ export default function ExecutiveOverviewPage() {
               numberFormat={settings.numberFormat}
             />
           </div>
-          <div className="pt-4 border-t border-line-subtle flex items-center justify-between text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-line-subtle pt-4 text-caption">
             <span className="text-ink-muted">Pending invoices</span>
             <span className="tabular-nums font-semibold text-warning">
               {money(cur.pendingRevenue)}
@@ -351,138 +336,206 @@ export default function ExecutiveOverviewPage() {
         <section className="card md:col-span-2 md:max-xl:order-1 xl:col-span-8 space-y-4">
           <CardHeader
             title="Order Volume & Customer Acquisition"
-            subtitle="Completed order volume vs. newly onboarded customer accounts"
+            subtitle="Order volume vs. newly onboarded customer accounts"
             action={<CardLink href="/dashboard/analytics">Deep Analytics</CardLink>}
           />
-          <OrdersAndCustomerGrowthChart data={timeSeries} />
+          <OrdersAndCustomerGrowthChart data={timeSeries} numberFormat={settings.numberFormat} />
         </section>
 
         {/* 13. Top-performing products */}
-        <section className="card xl:col-span-4 space-y-4">
+        <section className="card @container min-w-0 xl:col-span-4 space-y-4">
           <CardHeader
             title="Top-Performing Products"
             subtitle="Ranked by gross line-item revenue in selected period"
             action={<CardLink href="/dashboard/products">All {products.length} SKUs</CardLink>}
           />
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[240px] text-left border-collapse table-sticky-first">
-              <thead>
-                <tr className="border-b border-line-subtle text-caption text-ink-muted">
-                  <th scope="col" className="pb-3 font-medium">Product</th>
-                  <th scope="col" className="pb-3 pl-3 font-medium text-right">Units</th>
-                  <th scope="col" className="pb-3 pl-3 font-medium text-right">Revenue</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line-subtle text-sm">
-                {topProducts.map((prod) => (
-                  <tr
-                    key={prod.productId}
-                    onClick={() => router.push(`/dashboard/products?search=${prod.sku}`)}
-                    className="hover:bg-surface-hover cursor-pointer transition-colors"
-                  >
-                    <td className="py-3 pr-3 max-w-0 w-full">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <ProductArtwork category={prod.category} sku={prod.sku} size="sm" />
-                        <div className="min-w-0">
-                          <div className="font-medium text-ink truncate" title={prod.name}>
-                            {prod.name}
-                          </div>
-                          <div className="text-xs text-ink-muted truncate">{prod.sku}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 pl-3 text-right tabular-nums text-ink-secondary">
-                      {prod.unitsSold.toLocaleString()}
-                    </td>
-                    <td className="py-3 pl-3 text-right tabular-nums font-semibold text-ink whitespace-nowrap">
-                      {money(prod.grossRevenue)}
-                    </td>
+          {topProducts.length > 0 ? (
+            <>
+              <table className="hidden w-full text-left @[19rem]:table">
+                <caption className="sr-only">Top-performing products by gross revenue</caption>
+                <thead>
+                  <tr className="border-b border-line-subtle text-caption text-ink-secondary">
+                    <th scope="col" className="pb-2.5 font-medium">Product</th>
+                    <th scope="col" className="pb-2.5 pl-3 text-right font-medium">Units</th>
+                    <th scope="col" className="pb-2.5 pl-3 text-right font-medium">Revenue</th>
                   </tr>
+                </thead>
+                <tbody className="divide-y divide-line-subtle text-sm">
+                  {topProducts.map((prod) => (
+                    <tr
+                      key={prod.productId}
+                      className="relative hover:bg-surface-hover focus-within:bg-surface-hover transition-colors"
+                    >
+                      <th scope="row" className="w-full py-3 pr-2 text-left font-normal [overflow-wrap:anywhere]">
+                        <Link
+                          href={{ pathname: '/dashboard/products', query: { search: prod.sku } }}
+                          prefetch={false}
+                          className="rounded-sm font-semibold text-ink hover:text-accent after:absolute after:inset-0 after:content-['']"
+                        >
+                          {prod.name}
+                        </Link>
+                        <div className="text-caption text-ink-muted">{prod.sku}</div>
+                      </th>
+                      <td className="py-3 pl-3 text-right tabular-nums text-ink-secondary">
+                        {prod.unitsSold.toLocaleString()}
+                      </td>
+                      <td className="py-3 pl-3 text-right tabular-nums font-semibold text-ink whitespace-nowrap">
+                        {money(prod.grossRevenue)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <ul role="list" className="divide-y divide-line-subtle border-t border-line-subtle @[19rem]:hidden">
+                {topProducts.map((prod) => (
+                  <li key={prod.productId} className="relative space-y-2 py-3 hover:bg-surface-hover focus-within:bg-surface-hover">
+                    <div className="flex items-center gap-3">
+                      <div aria-hidden="true">
+                        <ProductArtwork category={prod.category} sku={prod.sku} size="sm" />
+                      </div>
+                      <div className="min-w-0 [overflow-wrap:anywhere]">
+                        <Link
+                          href={{ pathname: '/dashboard/products', query: { search: prod.sku } }}
+                          prefetch={false}
+                          className="rounded-sm text-sm font-semibold text-ink hover:text-accent after:absolute after:inset-0 after:content-['']"
+                        >
+                          {prod.name}
+                        </Link>
+                        <p className="text-caption text-ink-muted">{prod.sku}</p>
+                      </div>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-3 text-caption">
+                      <div>
+                        <dt className="text-ink-muted">Units</dt>
+                        <dd className="tabular-nums text-ink-secondary">{prod.unitsSold.toLocaleString()}</dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-ink-muted">Revenue</dt>
+                        <dd className="text-sm font-semibold tabular-nums text-ink [overflow-wrap:anywhere]">{money(prod.grossRevenue)}</dd>
+                      </div>
+                    </dl>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </ul>
+            </>
+          ) : (
+            <p className="rounded-lg bg-surface-sunken px-4 py-5 text-sm text-ink-secondary">
+              No product sales in this reporting window.
+            </p>
+          )}
         </section>
 
         {/* 12. Recent transactions */}
-        <section className="card md:col-span-2 md:max-xl:order-2 xl:col-span-8 space-y-4">
+        <section className="card @container min-w-0 md:col-span-2 md:max-xl:order-2 xl:col-span-8 space-y-4">
           <CardHeader
             title="Recent Transactions"
             subtitle="Latest commercial settlements in the selected reporting window"
             action={<CardLink href="/dashboard/orders">Manage Orders</CardLink>}
           />
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left border-collapse table-sticky-first">
-              <thead>
-                <tr className="border-b border-line-subtle text-caption text-ink-muted">
-                  <th scope="col" className="pb-3 pr-4 font-medium">Order</th>
-                  <th scope="col" className="pb-3 pr-4 font-medium">Customer</th>
-                  <th scope="col" className="pb-3 pr-4 font-medium">Date</th>
-                  <th scope="col" className="pb-3 pr-4 font-medium">Payment</th>
-                  <th scope="col" className="pb-3 font-medium text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line-subtle text-sm">
-                {recentTransactions.map((ord) => (
-                  <tr
-                    key={ord.id}
-                    onClick={() => router.push(`/dashboard/orders?search=${ord.orderNumber}`)}
-                    className="hover:bg-surface-hover cursor-pointer transition-colors"
-                  >
-                    <td className="py-3 pr-4 tabular-nums font-semibold text-accent whitespace-nowrap">
-                      {ord.orderNumber}
-                    </td>
-                    <td className="py-3 pr-4 max-w-0 w-full">
-                      <div className="min-w-0">
-                        <div className="font-medium text-ink truncate" title={ord.customerCompany}>
-                          {ord.customerCompany}
-                        </div>
-                        <div
-                          className="text-xs text-ink-muted truncate"
-                          title={`${ord.customerName} · ${ord.salesChannel}`}
-                        >
-                          {ord.customerName} · {ord.salesChannel}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3 pr-4 tabular-nums text-ink-secondary whitespace-nowrap">
-                      {formatDateDisplay(ord.orderDate, settings.dateFormat)}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <StatusBadge status={ord.paymentStatus} />
-                    </td>
-                    <td className="py-3 text-right tabular-nums font-semibold text-ink whitespace-nowrap">
-                      {money(ord.totalAmount)}
-                    </td>
+          {recentTransactions.length > 0 ? (
+            <>
+              <table className="hidden w-full text-left @[36rem]:table">
+                <caption className="sr-only">Recent transactions in the reporting window</caption>
+                <thead>
+                  <tr className="border-b border-line-subtle text-caption text-ink-secondary">
+                    <th scope="col" className="pb-2.5 pr-4 font-medium">Order</th>
+                    <th scope="col" className="pb-2.5 pr-4 font-medium">Customer</th>
+                    <th scope="col" className="pb-2.5 pr-4 font-medium">Date</th>
+                    <th scope="col" className="pb-2.5 pr-4 font-medium">Payment</th>
+                    <th scope="col" className="pb-2.5 text-right font-medium">Total</th>
                   </tr>
+                </thead>
+                <tbody className="divide-y divide-line-subtle text-sm">
+                  {recentTransactions.map((ord) => (
+                    <tr
+                      key={ord.id}
+                      className="relative hover:bg-surface-hover focus-within:bg-surface-hover transition-colors"
+                    >
+                      <th scope="row" className="min-w-32 py-3 pr-4 text-left tabular-nums [overflow-wrap:anywhere]">
+                        <Link
+                          href={{ pathname: '/dashboard/orders', query: { search: ord.orderNumber } }}
+                          prefetch={false}
+                          className="rounded-sm font-semibold text-accent hover:underline after:absolute after:inset-0 after:content-['']"
+                        >
+                          {ord.orderNumber}
+                        </Link>
+                      </th>
+                      <td className="w-full py-3 pr-4 [overflow-wrap:anywhere]">
+                        <div className="font-medium text-ink">{ord.customerCompany}</div>
+                        <div className="text-caption text-ink-muted">{ord.customerName} · {ord.salesChannel}</div>
+                      </td>
+                      <td className="whitespace-nowrap py-3 pr-4 tabular-nums text-ink-secondary">
+                        <time dateTime={ord.orderDate}>{formatDateDisplay(ord.orderDate, settings.dateFormat)}</time>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <StatusBadge status={ord.paymentStatus} />
+                      </td>
+                      <td className="py-3 text-right tabular-nums font-semibold text-ink whitespace-nowrap">
+                        {money(ord.totalAmount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <ul role="list" className="divide-y divide-line-subtle border-t border-line-subtle @[36rem]:hidden">
+                {recentTransactions.map((ord) => (
+                  <li key={ord.id} className="relative space-y-2 py-3 hover:bg-surface-hover focus-within:bg-surface-hover">
+                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm tabular-nums [overflow-wrap:anywhere]">
+                      <Link
+                        href={{ pathname: '/dashboard/orders', query: { search: ord.orderNumber } }}
+                        prefetch={false}
+                        className="rounded-sm font-semibold text-accent hover:underline after:absolute after:inset-0 after:content-['']"
+                      >
+                        {ord.orderNumber}
+                      </Link>
+                    <span className="min-w-0 font-semibold text-ink">
+                      <span className="sr-only">Total </span>{money(ord.totalAmount)}
+                    </span>
+                    </div>
+                    <div className="[overflow-wrap:anywhere]">
+                      <p className="text-sm font-medium text-ink">{ord.customerCompany}</p>
+                      <p className="text-caption text-ink-muted">{ord.customerName} · {ord.salesChannel}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                      <StatusBadge status={ord.paymentStatus} />
+                      <time dateTime={ord.orderDate} className="text-caption tabular-nums text-ink-secondary">
+                        {formatDateDisplay(ord.orderDate, settings.dateFormat)}
+                      </time>
+                    </div>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </ul>
+            </>
+          ) : (
+            <p className="rounded-lg bg-surface-sunken px-4 py-5 text-sm text-ink-secondary">
+              No transactions in this reporting window.
+            </p>
+          )}
         </section>
 
         {/* 14. Business activity feed */}
-        <section className="card md:col-span-2 md:max-xl:order-3 xl:col-span-4 flex flex-col gap-4">
+        <section className="card min-w-0 md:col-span-2 md:max-xl:order-3 xl:col-span-4 flex flex-col gap-4">
           <CardHeader
             title="Business Activity Feed"
             subtitle="Recent workspace mutations & exports"
             action={<CardLink href="/dashboard/activity">Full Log</CardLink>}
           />
-          <ul className="flex-1 flex flex-col justify-between divide-y divide-line-subtle">
+          <ul role="list" className="divide-y divide-line-subtle border-t border-line-subtle">
             {activities.slice(0, 6).map((act) => (
-              <li key={act.id} className="py-3 first:pt-0 last:pb-0 space-y-1">
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-sm font-medium text-ink truncate" title={act.action}>
+              <li key={act.id} className="space-y-1.5 py-3 last:pb-0">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3">
+                  <h3 className="text-sm font-semibold text-ink [overflow-wrap:anywhere]">
                     {act.action}
-                  </span>
-                  <span className="text-xs tabular-nums text-ink-muted whitespace-nowrap">
+                  </h3>
+                  <time dateTime={act.timestamp} className="text-right text-caption tabular-nums text-ink-muted whitespace-nowrap">
                     {formatDateDisplay(act.timestamp, settings.dateFormat)}
-                  </span>
+                  </time>
                 </div>
-                <p className="text-xs text-ink-secondary line-clamp-2">{act.description}</p>
-                <div className="text-xs text-ink-muted truncate">
-                  {act.actorName} · {act.actorRole} · {act.category}
-                </div>
+                <p className="text-sm leading-5 text-ink-secondary [overflow-wrap:anywhere]">{act.description}</p>
+                <p className="flex flex-wrap gap-x-2 gap-y-0.5 text-caption text-ink-muted [overflow-wrap:anywhere]">
+                  <span>{act.actorName} ({act.actorRole})</span>
+                  <span><span aria-hidden="true">· </span>{act.category}</span>
+                </p>
               </li>
             ))}
           </ul>

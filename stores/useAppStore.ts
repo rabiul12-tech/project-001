@@ -32,6 +32,8 @@ import {
   saveToLocalStorage,
   sortActivitiesNewestFirst,
   STORAGE_KEYS,
+  type StorageLoadResult,
+  type StorageWriteResult,
   validateAndImportBackupJson,
 } from '@/lib/storage/repository';
 import {
@@ -39,6 +41,7 @@ import {
   fromCents,
   toCents,
 } from '@/lib/calculations/analytics';
+import { canRefundOrder, getOrderTransitionError } from '@/lib/orders';
 import {
   canPerformAction,
   getPermissionDeniedMessage,
@@ -46,15 +49,18 @@ import {
 } from '@/lib/permissions';
 import {
   backupStorageSchema,
+  createOrderFormSchema,
+  productFormSchema,
   CreateOrderFormValues,
   CustomerFormValues,
   ProductFormValues,
   TeamMemberFormValues,
+  isMinorUnitAmount,
 } from '@/lib/validation/schemas';
 
 interface AppStoreState {
   isHydrated: boolean;
-  hydrationStatus: 'hydrated' | 'seeded' | 'migrated' | 'corrupt_recovered';
+  hydrationStatus: StorageLoadResult['status'];
   recoveryAlertMessage: string | null;
   storageQuotaError: string | null;
   seededAt: string;
@@ -99,6 +105,7 @@ interface AppStoreState {
   toggleTheme: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setActiveRolePreview: (role: TeamRole) => void;
+  selectDemoPersona: (memberId: string) => boolean;
 
   // Customer CRUD
   addCustomer: (values: CustomerFormValues) => Customer | null;
@@ -117,13 +124,13 @@ interface AppStoreState {
     paymentStatus: PaymentStatus,
     fulfillmentStatus: FulfillmentStatus
   ) => void;
-  cancelOrder: (orderId: string) => void;
-  refundOrder: (orderId: string, refundAmount?: number) => void;
+  cancelOrder: (orderId: string) => boolean;
+  refundOrder: (orderId: string, refundAmount?: number) => boolean;
   bulkUpdateOrderStatus: (
     orderIds: string[],
     paymentStatus: PaymentStatus,
     fulfillmentStatus: FulfillmentStatus
-  ) => void;
+  ) => boolean;
 
   // Reports
   saveReportConfig: (
@@ -140,7 +147,9 @@ interface AppStoreState {
   removeTeamMember: (id: string) => void;
 
   // Settings & Data Management
-  updateSettings: (partial: Partial<WorkspaceSettings>) => void;
+  updateSettings: (partial: Omit<Partial<WorkspaceSettings>, 'notifications'> & {
+    notifications?: Partial<WorkspaceSettings['notifications']>;
+  }) => StorageWriteResult;
   resetDemoData: () => void;
   importBackupJson: (rawJson: string) => { ok: boolean; error?: string };
   getExportSnapshot: () => AurelixStorageSchema;
@@ -201,7 +210,53 @@ function generateNextOrderNumber(orders: Order[]): string {
   return `AUR-${maxNum + 1}`;
 }
 
+function updateStock(product: Product, stockLevel: number): Product {
+  return {
+    ...product,
+    stockLevel,
+    status: product.status === 'Archived' ? 'Archived' : stockLevel <= 14 ? 'Low Stock' : 'Active',
+  };
+}
+
+function applyOrderTransition(
+  order: Order,
+  products: Product[],
+  paymentStatus: PaymentStatus,
+  fulfillmentStatus: FulfillmentStatus
+): { order: Order; products: Product[] } | { error: string } {
+  const error = getOrderTransitionError(order, paymentStatus, fulfillmentStatus);
+  if (error) return { error };
+  if (order.paymentStatus === paymentStatus && order.fulfillmentStatus === fulfillmentStatus) {
+    return { order, products };
+  }
+  const updated = {
+    ...order,
+    paymentStatus: fulfillmentStatus === 'Canceled' && paymentStatus === 'Pending'
+      ? 'Failed' as const
+      : paymentStatus,
+    fulfillmentStatus,
+  };
+  const shouldRelease = (order.fulfillmentStatus === 'Processing' || order.fulfillmentStatus === 'Scheduled') &&
+    (updated.fulfillmentStatus === 'Canceled' || updated.paymentStatus === 'Failed');
+  if (!shouldRelease || !order.stockDebits?.length) return { order: updated, products };
+
+  const returned = new Map(order.stockDebits.map(({ productId, quantity }) => [productId, quantity]));
+  if (products.some((product) => product.stockLevel + (returned.get(product.id) ?? 0) > 100000)) {
+    return { error: 'Returning reserved units would exceed the stock limit. Adjust inventory before retrying.' };
+  }
+  return {
+    order: { ...updated, stockDebits: [] },
+    products: products.map((product) => {
+      const units = returned.get(product.id);
+      return units ? updateStock(product, product.stockLevel + units) : product;
+    }),
+  };
+}
+
 export const useAppStore = create<AppStoreState>((set, get) => {
+  // Compare the exact loaded bytes, including when two writes share a timestamp.
+  let workspaceRevision: string | null | undefined;
+
   const guardPermission = (action: PermissionAction): boolean => {
     const role = get().settings.activeRolePreview;
     if (canPerformAction(role, action)) return true;
@@ -211,6 +266,13 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       'error'
     );
     return false;
+  };
+
+  const handleWriteFailure = (result: StorageWriteResult) => {
+    if (result.conflict) get().syncFromExternalStorage();
+    const message = result.error ?? 'Changes could not be saved to LocalStorage.';
+    set({ storageQuotaError: message });
+    get().addToast('Storage persistence error', message, 'error');
   };
 
   const commitState = (patch: Partial<AppStoreState>) => {
@@ -223,21 +285,45 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       ...merged,
       activities: normalizedActivities,
     };
-    const saveRes = saveToLocalStorage(buildSnapshotFromState(nextState));
-    set({
-      ...patch,
-      ...(patch.activities ? { activities: normalizedActivities } : {}),
-      storageQuotaError: saveRes.ok
-        ? null
-        : saveRes.error || 'Unable to persist workspace updates to LocalStorage.',
-    });
+    const saveRes = saveToLocalStorage(buildSnapshotFromState(nextState), workspaceRevision);
     if (!saveRes.ok) {
-      get().addToast(
-        'Storage persistence error',
-        saveRes.error || 'Changes could not be saved to LocalStorage.',
-        'error'
-      );
+      handleWriteFailure(saveRes);
+      return saveRes;
     }
+    workspaceRevision = saveRes.revision;
+    set({ ...patch, activities: normalizedActivities, storageQuotaError: null });
+    return saveRes;
+  };
+
+  const changeOrderStatus = (
+    orderId: string, paymentStatus: PaymentStatus, fulfillmentStatus: FulfillmentStatus
+  ): boolean => {
+    if (!guardPermission('mutate_orders')) return false;
+    const state = get();
+    const target = state.orders.find((order) => order.id === orderId);
+    if (!target) return false;
+
+    const changed = applyOrderTransition(target, state.products, paymentStatus, fulfillmentStatus);
+    if ('error' in changed) {
+      state.addToast('Order update unavailable', changed.error, 'warning');
+      return false;
+    }
+    if (changed.order === target) return true;
+
+    const canceled = changed.order.fulfillmentStatus === 'Canceled';
+    const detail = `${changed.order.paymentStatus} / ${changed.order.fulfillmentStatus}`;
+    const event = createActivityRecord(
+      state, 'Order', canceled ? 'Order Canceled' : 'Order Status Updated',
+      target.orderNumber, `Updated ${target.orderNumber} to ${detail}.`, orderId
+    );
+    if (!commitState({
+      orders: state.orders.map((order) => order.id === orderId ? changed.order : order),
+      products: changed.products,
+      activities: [event, ...state.activities],
+    }).ok) return false;
+
+    state.addToast(canceled ? 'Order canceled' : 'Order updated', `${target.orderNumber} updated to ${detail}.`, 'success');
+    return true;
   };
 
   return {
@@ -269,6 +355,7 @@ export const useAppStore = create<AppStoreState>((set, get) => {
     // First client-side moment: from here on the clock is the visitor's real time.
     goLive();
     const result = loadFromLocalStorage();
+    workspaceRevision = result.revision ?? null;
     const range = defaultCustomRange();
     set({
       isHydrated: true,
@@ -277,6 +364,7 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       customEndDate: range.end,
       hydrationStatus: result.status,
       recoveryAlertMessage: result.errorMessage || null,
+      storageQuotaError: result.persistenceError || null,
       customers: result.data.customers,
       products: result.data.products,
       orders: result.data.orders,
@@ -293,24 +381,25 @@ export const useAppStore = create<AppStoreState>((set, get) => {
     if (typeof window === 'undefined') return;
     try {
       const rawJson = window.localStorage.getItem(STORAGE_KEYS.MAIN_STORE);
-      if (!rawJson) return;
+      if (!rawJson || rawJson === workspaceRevision) return;
       const parsed = JSON.parse(rawJson);
       const check = backupStorageSchema.safeParse(parsed);
       if (!check.success) return;
       if (parsed.schemaVersion > CURRENT_SCHEMA_VERSION) return;
       const d = check.data;
-      set((state) => ({
+      workspaceRevision = rawJson;
+      set({
         seededAt: d.seededAt,
         customers: d.customers,
         products: d.products,
         orders: d.orders,
         team: d.team,
         activities: sortActivitiesNewestFirst(d.activities),
-        savedReports: d.savedReports.length > 0 ? d.savedReports : state.savedReports,
-        reportHistory: d.reportHistory.length > 0 ? d.reportHistory : state.reportHistory,
-        dailySessions: d.dailySessions.length > 0 ? d.dailySessions : state.dailySessions,
+        savedReports: d.savedReports,
+        reportHistory: d.reportHistory,
+        dailySessions: d.dailySessions,
         settings: d.settings,
-      }));
+      });
     } catch {
       // Ignore malformed external storage mutations so current tab state stays safe
     }
@@ -376,11 +465,36 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       `Role: ${role}`,
       `Switched interactive demo interface preview to ${role} permissions.`
     );
-    commitState({
+    if (!commitState({
       settings: updatedSettings,
       activities: [event, ...state.activities],
-    });
+    }).ok) return;
     get().addToast(`Role preview set to ${role}`, 'Interface permissions updated for demo preview.', 'default');
+  },
+
+  selectDemoPersona: (memberId) => {
+    const state = get();
+    const member = state.team.find(({ id }) => id === memberId);
+    if (!member) {
+      state.addToast('Demo persona unavailable', 'Choose a profile from the current team roster.', 'warning');
+      return false;
+    }
+    const settings: WorkspaceSettings = {
+      ...state.settings,
+      personalName: member.name,
+      personalEmail: member.email,
+      personalTitle: member.title,
+      activeRolePreview: member.role,
+    };
+    const event = createActivityRecord(
+      state,
+      'Team',
+      'Demo Persona Selected',
+      member.name,
+      `Entered the workspace as ${member.name} (${member.role}).`,
+      member.id
+    );
+    return commitState({ settings, activities: [event, ...state.activities] }).ok;
   },
 
   addCustomer: (values) => {
@@ -399,10 +513,10 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       `Added ${newCustomer.name} (${newCustomer.company}) in ${newCustomer.segment} segment.`,
       newCustomer.id
     );
-    commitState({
+    if (!commitState({
       customers: [newCustomer, ...state.customers],
       activities: [event, ...state.activities],
-    });
+    }).ok) return null;
     get().addToast('Customer added', `${newCustomer.company} has been saved.`, 'success');
     return newCustomer;
   },
@@ -431,11 +545,11 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       `Updated profile and segment details for ${values.name} (${values.company}).`,
       id
     );
-    commitState({
+    if (!commitState({
       customers,
       orders,
       activities: [event, ...state.activities],
-    });
+    }).ok) return;
     get().addToast('Customer updated', `Changes to ${values.company} saved.`, 'success');
   },
 
@@ -455,20 +569,25 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       targetLabel,
       `Deleted ${targetLabel}. Historical order ledger snapshots were preserved.`
     );
-    commitState({
+    if (!commitState({
       customers,
       activities: [event, ...state.activities],
-    });
+    }).ok) return;
     get().addToast('Customer deleted', `${targetLabel} removed from directory.`, 'warning');
   },
 
   addProduct: (values) => {
     if (!guardPermission('mutate_products')) return null;
+    const parsed = productFormSchema.safeParse(values);
+    if (!parsed.success) {
+      get().addToast('Invalid product', parsed.error.issues[0]?.message, 'error');
+      return null;
+    }
     const state = get();
     const nowIso = clockNowIso();
     const prefix = values.sku.slice(0, 3).toUpperCase() || 'ENT';
     const newProduct: Product = {
-      ...values,
+      ...parsed.data,
       id: `prod_${Date.now()}`,
       imageCode: `${prefix}-${(state.products.length % 6) + 1}`,
       createdAt: nowIso,
@@ -482,21 +601,26 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       `Created SKU ${newProduct.sku} at $${newProduct.unitPrice.toLocaleString()} unit price.`,
       newProduct.id
     );
-    commitState({
+    if (!commitState({
       products: [newProduct, ...state.products],
       activities: [event, ...state.activities],
-    });
+    }).ok) return null;
     get().addToast('Product created', `${newProduct.name} (${newProduct.sku}) added to catalog.`, 'success');
     return newProduct;
   },
 
   updateProduct: (id, values) => {
     if (!guardPermission('mutate_products')) return;
+    const parsed = productFormSchema.safeParse(values);
+    if (!parsed.success) {
+      get().addToast('Invalid product', parsed.error.issues[0]?.message, 'error');
+      return;
+    }
     const state = get();
     const nowIso = clockNowIso();
     // Crucial requirement: updating a product's unitPrice does NOT mutate historical order line items
     const products = state.products.map((p) =>
-      p.id === id ? { ...p, ...values, updatedAt: nowIso } : p
+      p.id === id ? { ...p, ...parsed.data, updatedAt: nowIso } : p
     );
     const event = createActivityRecord(
       state,
@@ -506,10 +630,10 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       `Updated catalog SKU ${values.sku} (New unit price: $${values.unitPrice.toLocaleString()}). Historical orders retain original price.`,
       id
     );
-    commitState({
+    if (!commitState({
       products,
       activities: [event, ...state.activities],
-    });
+    }).ok) return;
     get().addToast('Product updated', `${values.name} catalog details saved.`, 'success');
   },
 
@@ -528,53 +652,67 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       `${ids.length} SKU(s)`,
       `Archived ${ids.length} product catalog item(s).`
     );
-    commitState({
+    if (!commitState({
       products,
       activities: [event, ...state.activities],
-    });
+    }).ok) return;
     get().addToast('Products archived', `${ids.length} product(s) marked as Archived.`, 'default');
   },
 
   createOrder: (values) => {
     if (!guardPermission('mutate_orders')) return null;
     const state = get();
-    const customer = state.customers.find((c) => c.id === values.customerId);
+    const parsed = createOrderFormSchema.safeParse(values);
+    if (!parsed.success || parsed.data.paymentStatus === 'Refunded') {
+      state.addToast('Order unavailable', parsed.error?.issues[0].message ??
+        'Create a paid order before recording a refund.', 'warning');
+      return null;
+    }
+    const draft = parsed.data;
+    const customer = state.customers.find((candidate) => candidate.id === draft.customerId);
     if (!customer) return null;
 
     const lineItems: OrderLineItem[] = [];
-    for (let idx = 0; idx < values.items.length; idx++) {
-      const itemInput = values.items[idx];
-      const product = state.products.find((p) => p.id === itemInput.productId);
-      if (!product) continue;
-      const quantity = Math.max(1, Number(itemInput.quantity));
-      const unitPrice = product.unitPrice;
+    const quantities = new Map<string, number>();
+    for (const item of draft.items) {
+      const product = state.products.find((candidate) => candidate.id === item.productId);
+      if (!product || product.status === 'Archived') {
+        state.addToast(
+          'Order unavailable',
+          product ? `${product.sku} is archived. Select an available product.` : 'A selected product is no longer in the catalog.',
+          'warning'
+        );
+        return null;
+      }
+      const unitPrice = fromCents(toCents(product.unitPrice));
+      quantities.set(product.id, (quantities.get(product.id) ?? 0) + item.quantity);
       lineItems.push({
-        id: `li_${Date.now()}_${idx}`,
+        id: `li_${Date.now()}_${lineItems.length}`,
         productId: product.id,
         productName: product.name,
         sku: product.sku,
         category: product.category,
-        quantity,
+        quantity: item.quantity,
         unitPrice,
-        subtotal: fromCents(Math.round(quantity * toCents(unitPrice))),
+        subtotal: fromCents(item.quantity * toCents(unitPrice)),
       });
     }
 
-    if (lineItems.length === 0) return null;
-
-    const rawTaxRatePercent = Number.isFinite(Number(values.taxRatePercent))
-      ? Number(values.taxRatePercent)
-      : 8.5;
-    const taxRate = Math.max(0, rawTaxRatePercent) / 100;
-    const totals = calculateOrderTotalsFromItems(
-      lineItems,
-      Number(values.discountAmount) || 0,
-      taxRate
-    );
-
+    const taxRate = draft.taxRatePercent / 100;
+    const totals = calculateOrderTotalsFromItems(lineItems, draft.discountAmount, taxRate);
     const orderNumber = generateNextOrderNumber(state.orders);
+    const stockDebits: NonNullable<Order['stockDebits']> = [];
+    const products = draft.paymentStatus !== 'Failed' && draft.fulfillmentStatus !== 'Canceled'
+      ? state.products.map((product) => {
+          const quantity = Math.min(product.stockLevel, quantities.get(product.id) ?? 0);
+          if (!quantity) return product;
+          stockDebits.push({ productId: product.id, quantity });
+          return updateStock(product, product.stockLevel - quantity);
+        })
+      : state.products;
+
     const newOrder: Order = {
-      id: `ord_${Date.now()}`,
+      id: `ord_${Date.now()}_${orderNumber}`,
       orderNumber,
       customerId: customer.id,
       customerName: customer.name,
@@ -582,223 +720,96 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       customerCompany: customer.company,
       orderDate: clockNowIso(),
       lineItems,
-      subtotal: totals.subtotal,
-      discountAmount: totals.discountAmount,
+      ...totals,
       taxRate,
-      taxAmount: totals.taxAmount,
-      totalAmount: totals.totalAmount,
-      refundedAmount: values.paymentStatus === 'Refunded' ? totals.totalAmount : 0,
-      paymentStatus: values.paymentStatus,
-      fulfillmentStatus: values.fulfillmentStatus,
-      salesChannel: values.salesChannel,
-      notes: values.notes,
+      refundedAmount: 0,
+      stockDebits,
+      paymentStatus: draft.fulfillmentStatus === 'Canceled' && draft.paymentStatus === 'Pending'
+        ? 'Failed'
+        : draft.paymentStatus,
+      fulfillmentStatus: draft.fulfillmentStatus,
+      salesChannel: draft.salesChannel,
+      notes: draft.notes,
     };
 
-    // Decrement product stock levels safely (skip inventory decrement if Canceled/Failed)
-    const shouldDecrementStock =
-      values.paymentStatus !== 'Failed' && values.fulfillmentStatus !== 'Canceled';
-    const products = shouldDecrementStock
-      ? state.products.map((p) => {
-          const orderedQty = lineItems
-            .filter((li) => li.productId === p.id)
-            .reduce((acc, li) => acc + li.quantity, 0);
-          if (orderedQty === 0) return p;
-          const nextStock = Math.max(0, p.stockLevel - orderedQty);
-          const nextStatus: ProductStatus =
-            p.status === 'Archived'
-              ? 'Archived'
-              : nextStock === 0
-              ? 'Low Stock'
-              : nextStock <= 14
-              ? 'Low Stock'
-              : 'Active';
-          return { ...p, stockLevel: nextStock, status: nextStatus };
-        })
-      : state.products;
-
     const event = createActivityRecord(
-      state,
-      'Order',
-      'Order Created',
-      newOrder.orderNumber,
+      state, 'Order', 'Order Created', newOrder.orderNumber,
       `Created order ${newOrder.orderNumber} for ${customer.company} totaling $${newOrder.totalAmount.toLocaleString()}.`,
       newOrder.id
     );
-
-    commitState({
+    if (!commitState({
       orders: [newOrder, ...state.orders],
       products,
       activities: [event, ...state.activities],
-    });
-    get().addToast(
-      'Order created',
-      `${newOrder.orderNumber} ($${newOrder.totalAmount.toLocaleString()}) recorded.`,
-      'success'
-    );
+    }).ok) return null;
+
+    state.addToast('Order created', `${newOrder.orderNumber} ($${newOrder.totalAmount.toLocaleString()}) recorded.`, 'success');
     return newOrder;
   },
 
-  updateOrderStatus: (orderId, paymentStatus, fulfillmentStatus) => {
-    if (!guardPermission('mutate_orders')) return;
-    const state = get();
-    const target = state.orders.find((o) => o.id === orderId);
-    if (!target) return;
-
-    const orders = state.orders.map((o) => {
-      if (o.id !== orderId) return o;
-      const effectivePayment =
-        fulfillmentStatus === 'Canceled' && paymentStatus === 'Pending'
-          ? ('Failed' as const)
-          : paymentStatus;
-      const refundedAmount =
-        effectivePayment === 'Refunded'
-          ? o.refundedAmount > 0
-            ? Math.min(o.totalAmount, o.refundedAmount)
-            : o.totalAmount
-          : 0;
-      return {
-        ...o,
-        paymentStatus: effectivePayment,
-        fulfillmentStatus,
-        refundedAmount,
-      };
-    });
-
-    const event = createActivityRecord(
-      state,
-      'Order',
-      'Order Status Updated',
-      target.orderNumber,
-      `Updated ${target.orderNumber} to Payment: ${paymentStatus}, Fulfillment: ${fulfillmentStatus}.`,
-      orderId
-    );
-    commitState({
-      orders,
-      activities: [event, ...state.activities],
-    });
-    get().addToast(
-      'Order updated',
-      `${target.orderNumber} updated to ${paymentStatus} / ${fulfillmentStatus}.`,
-      'success'
-    );
-  },
+  updateOrderStatus: changeOrderStatus,
 
   cancelOrder: (orderId) => {
-    if (!guardPermission('mutate_orders')) return;
-    const state = get();
-    const target = state.orders.find((o) => o.id === orderId);
-    if (!target) return;
-
-    const orders = state.orders.map((o) =>
-      o.id === orderId
-        ? {
-            ...o,
-            paymentStatus: 'Failed' as const,
-            fulfillmentStatus: 'Canceled' as const,
-            refundedAmount: 0,
-          }
-        : o
-    );
-
-    const event = createActivityRecord(
-      state,
-      'Order',
-      'Order Canceled',
-      target.orderNumber,
-      `Canceled order ${target.orderNumber} for ${target.customerCompany}.`,
-      orderId
-    );
-    commitState({
-      orders,
-      activities: [event, ...state.activities],
-    });
-    get().addToast('Order canceled', `${target.orderNumber} has been marked as Canceled.`, 'warning');
+    const order = get().orders.find((candidate) => candidate.id === orderId);
+    return order ? changeOrderStatus(orderId, order.paymentStatus, 'Canceled') : false;
   },
 
   refundOrder: (orderId, refundAmount) => {
-    if (!guardPermission('issue_refund')) return;
+    if (!guardPermission('issue_refund')) return false;
     const state = get();
-    const target = state.orders.find((o) => o.id === orderId);
-    if (!target) return;
-
-    if (target.paymentStatus === 'Failed' || target.fulfillmentStatus === 'Canceled') {
-      get().addToast(
-        'Refund unavailable',
-        `Canceled or failed order ${target.orderNumber} has no collected settlement to refund.`,
-        'warning'
-      );
-      return;
+    const target = state.orders.find((order) => order.id === orderId);
+    if (!target || !canRefundOrder(target)) {
+      state.addToast('Refund unavailable', 'Only a paid, non-canceled order with no recorded refund can be refunded.', 'warning');
+      return false;
     }
 
-    const totalCents = toCents(target.totalAmount);
-    const requestedCents =
-      refundAmount !== undefined && Number.isFinite(refundAmount)
-        ? toCents(refundAmount)
-        : totalCents;
-    const clampedCents = Math.min(totalCents, Math.max(1, requestedCents));
-    const finalRefund = fromCents(clampedCents);
+    const amount = refundAmount ?? target.totalAmount;
+    if (!isMinorUnitAmount(amount) || amount <= 0 || toCents(amount) > toCents(target.totalAmount)) {
+      state.addToast('Invalid refund amount', 'Enter an amount in cents between $0.01 and the order total.', 'warning');
+      return false;
+    }
 
-    const orders = state.orders.map((o) =>
-      o.id === orderId
-        ? {
-            ...o,
-            paymentStatus: 'Refunded' as const,
-            refundedAmount: finalRefund,
-          }
-        : o
+    const orders = state.orders.map((order) => order.id === orderId
+      ? { ...order, paymentStatus: 'Refunded' as const, refundedAmount: amount }
+      : order
     );
-
     const event = createActivityRecord(
-      state,
-      'Order',
-      'Simulated Refund Issued',
-      target.orderNumber,
-      `Simulated refund of $${finalRefund.toLocaleString()} for ${target.orderNumber} (${target.customerCompany}).`,
+      state, 'Order', 'Simulated Refund Issued', target.orderNumber,
+      `Simulated refund of $${amount.toLocaleString()} for ${target.orderNumber} (${target.customerCompany}).`,
       orderId
     );
-    commitState({
-      orders,
-      activities: [event, ...state.activities],
-    });
-    get().addToast(
-      'Simulated refund processed',
-      `Refund of $${finalRefund.toLocaleString()} recorded on ${target.orderNumber}.`,
-      'warning'
-    );
+    if (!commitState({ orders, activities: [event, ...state.activities] }).ok) return false;
+    state.addToast('Simulated refund processed', `Refund of $${amount.toLocaleString()} recorded on ${target.orderNumber}.`, 'warning');
+    return true;
   },
 
   bulkUpdateOrderStatus: (orderIds, paymentStatus, fulfillmentStatus) => {
-    if (!guardPermission('mutate_orders')) return;
+    if (!guardPermission('mutate_orders')) return false;
     const state = get();
-    const idSet = new Set(orderIds);
-    if (idSet.size === 0) return;
-    const orders = state.orders.map((o) => {
-      if (!idSet.has(o.id)) return o;
-      const refundedAmount =
-        paymentStatus === 'Refunded'
-          ? o.refundedAmount > 0
-            ? Math.min(o.totalAmount, o.refundedAmount)
-            : o.totalAmount
-          : 0;
-      return {
-        ...o,
-        paymentStatus,
-        fulfillmentStatus,
-        refundedAmount,
-      };
-    });
+    const selected = new Set(orderIds);
+    const orders = [...state.orders];
+    let products = state.products;
+    let updatedCount = 0;
+    for (let i = 0; i < orders.length; i++) {
+      const order = orders[i];
+      if (!selected.has(order.id)) continue;
+      const changed = applyOrderTransition(order, products, paymentStatus, fulfillmentStatus);
+      if ('error' in changed) {
+        state.addToast('Bulk update unavailable', `${order.orderNumber}: ${changed.error}`, 'warning');
+        return false;
+      }
+      orders[i] = changed.order;
+      products = changed.products;
+      if (changed.order !== order) updatedCount++;
+    }
+    if (!updatedCount) return true;
     const event = createActivityRecord(
-      state,
-      'Order',
-      'Bulk Order Update',
-      `${orderIds.length} Orders`,
-      `Updated ${orderIds.length} orders to ${paymentStatus} / ${fulfillmentStatus}.`
+      state, 'Order', 'Bulk Order Update', `${updatedCount} Orders`,
+      `Updated ${updatedCount} orders to ${paymentStatus} / ${fulfillmentStatus}.`
     );
-    commitState({
-      orders,
-      activities: [event, ...state.activities],
-    });
-    get().addToast('Bulk update complete', `Updated ${orderIds.length} order records.`, 'success');
+    if (!commitState({ orders, products, activities: [event, ...state.activities] }).ok) return false;
+    state.addToast('Bulk update complete', `Updated ${updatedCount} order records.`, 'success');
+    return true;
   },
 
   saveReportConfig: (config) => {
@@ -821,10 +832,10 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       `Saved custom report configuration "${newConfig.name}" (${newConfig.type}).`,
       newConfig.id
     );
-    commitState({
+    if (!commitState({
       savedReports,
       activities: [event, ...state.activities],
-    });
+    }).ok) return null;
     get().addToast('Report configuration saved', `"${newConfig.name}" added to templates.`, 'success');
     return newConfig;
   },
@@ -843,10 +854,10 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       `Removed saved report configuration "${target.name}".`,
       id
     );
-    commitState({
+    if (!commitState({
       savedReports,
       activities: [event, ...state.activities],
-    });
+    }).ok) return;
     get().addToast('Report removed', `"${target.name}" deleted.`, 'default');
   },
 
@@ -894,10 +905,10 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       `Added ${newMember.name} (${newMember.title}) with simulated ${newMember.role} role.`,
       newMember.id
     );
-    commitState({
+    if (!commitState({
       team,
       activities: [event, ...state.activities],
-    });
+    }).ok) return null;
     get().addToast('Demo team member added', `${newMember.name} added as ${newMember.role}.`, 'success');
     return newMember;
   },
@@ -916,10 +927,10 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       `Updated profile or role assignment for ${target.name}.`,
       id
     );
-    commitState({
+    if (!commitState({
       team,
       activities: [event, ...state.activities],
-    });
+    }).ok) return;
     get().addToast('Team member updated', 'Demo profile changes saved.', 'success');
   },
 
@@ -936,15 +947,17 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       target.name,
       `Removed ${target.name} from simulated workspace directory.`
     );
-    commitState({
+    if (!commitState({
       team,
       activities: [event, ...state.activities],
-    });
+    }).ok) return;
     get().addToast('Member removed', `${target.name} removed from demo roster.`, 'warning');
   },
 
   updateSettings: (partial) => {
-    if (!guardPermission('manage_settings')) return;
+    if (!guardPermission('manage_settings')) {
+      return { ok: false, error: getPermissionDeniedMessage(get().settings.activeRolePreview, 'manage_settings') };
+    }
     const state = get();
     const settings: WorkspaceSettings = {
       ...state.settings,
@@ -961,17 +974,23 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       settings.workspaceName,
       'Updated workspace preferences and display formatting configuration.'
     );
-    commitState({
+    const result = commitState({
       settings,
       activities: [event, ...state.activities],
     });
-    get().addToast('Settings saved', 'Your workspace preferences have been persisted.', 'success');
+    if (result.ok) get().addToast('Settings saved', 'Your workspace preferences have been persisted.', 'success');
+    return { ok: result.ok, error: result.error, conflict: result.conflict };
   },
 
   resetDemoData: () => {
     if (!guardPermission('manage_backups_and_reset')) return;
     const fresh = generateDeterministicSeedData();
-    const saveRes = saveToLocalStorage(fresh);
+    const saveRes = saveToLocalStorage(fresh, workspaceRevision);
+    if (!saveRes.ok) {
+      handleWriteFailure(saveRes);
+      return;
+    }
+    workspaceRevision = saveRes.revision;
     const range = defaultCustomRange();
     set({
       seededAt: fresh.seededAt,
@@ -988,7 +1007,7 @@ export const useAppStore = create<AppStoreState>((set, get) => {
       settings: fresh.settings,
       datePreset: '30d',
       recoveryAlertMessage: null,
-      storageQuotaError: saveRes.ok ? null : saveRes.error || null,
+      storageQuotaError: null,
     });
     get().addToast(
       'Demo dataset restored',
@@ -1007,12 +1026,14 @@ export const useAppStore = create<AppStoreState>((set, get) => {
         ),
       };
     }
-    const res = validateAndImportBackupJson(rawJson);
+    const res = validateAndImportBackupJson(rawJson, workspaceRevision);
     if (!res.ok || !res.data) {
+      if (res.conflict) get().syncFromExternalStorage();
       get().addToast('Backup import failed', res.error || 'Invalid backup file.', 'error');
       return { ok: false, error: res.error };
     }
     const d = res.data;
+    workspaceRevision = res.revision;
     set({
       seededAt: d.seededAt,
       customers: d.customers,

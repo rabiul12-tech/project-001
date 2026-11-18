@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   ArrowRight,
@@ -13,6 +14,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useWorkspaceAction } from '@/hooks/useWorkspaceAction';
 import { useNowMs } from '@/lib/useClock';
 import {
   calculateExecutiveComparison,
@@ -20,7 +22,6 @@ import {
 } from '@/lib/calculations/analytics';
 import { formatCurrency } from '@/lib/export/exporter';
 import { UserAvatar } from '@/components/ui/primitives';
-import { TeamRole } from '@/types';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -30,10 +31,10 @@ export default function LandingPage() {
   const dailySessions = useAppStore((s) => s.dailySessions);
   const team = useAppStore((s) => s.team);
   const settings = useAppStore((s) => s.settings);
-  const setActiveRolePreview = useAppStore((s) => s.setActiveRolePreview);
-  const updateSettings = useAppStore((s) => s.updateSettings);
+  const selectDemoPersona = useWorkspaceAction((s) => s.selectDemoPersona);
 
   const [heroImgFailed, setHeroImgFailed] = useState(false);
+  const [enteringMemberId, setEnteringMemberId] = useState<string | null>(null);
   const now = useNowMs();
 
   const annualMetrics = useMemo(() => {
@@ -41,15 +42,13 @@ export default function LandingPage() {
     return calculateExecutiveComparison(orders, dailySessions, window);
   }, [orders, dailySessions, now]);
 
-  const handleEnterAsRole = (memberName: string, memberEmail: string, memberTitle: string, role: TeamRole) => {
-    setActiveRolePreview(role);
-    updateSettings({
-      personalName: memberName,
-      personalEmail: memberEmail,
-      personalTitle: memberTitle,
-      activeRolePreview: role,
-    });
-    router.push('/dashboard');
+  const handleEnterAsRole = async (memberId: string) => {
+    setEnteringMemberId(memberId);
+    try {
+      if (await selectDemoPersona(memberId)) router.push('/dashboard');
+    } finally {
+      setEnteringMemberId(null);
+    }
   };
 
   return (
@@ -150,12 +149,15 @@ export default function LandingPage() {
             <div className="lg:col-span-5 flex">
               <div className="relative w-full rounded-xl overflow-hidden border border-line bg-slate-900 flex flex-col justify-end min-h-[280px] lg:h-full">
                 {!heroImgFailed ? (
-                  <img
+                  <Image
                     src="/images/hero_executive_workspace_1794569121847.jpg"
                     alt="Aurelix executive analytics boardroom"
+                    fill
+                    sizes="(min-width: 1440px) 548px, (min-width: 1024px) 40vw, calc(100vw - 2rem)"
+                    priority
                     referrerPolicy="no-referrer"
                     onError={() => setHeroImgFailed(true)}
-                    className="absolute inset-0 w-full h-full object-cover"
+                    className="object-cover"
                   />
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 flex items-center justify-center">
@@ -340,7 +342,7 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {team.slice(0, 4).map((member) => {
-              const isSelected = settings.activeRolePreview === member.role && settings.personalName === member.name;
+              const isSelected = settings.activeRolePreview === member.role && settings.personalEmail === member.email;
               return (
                 <div
                   key={member.id}
@@ -372,13 +374,12 @@ export default function LandingPage() {
 
                   <button
                     type="button"
-                    onClick={() =>
-                      handleEnterAsRole(member.name, member.email, member.title, member.role)
-                    }
-                    className="w-full py-2 px-3 rounded-lg text-xs font-semibold bg-surface-hover text-ink hover:bg-accent-strong hover:text-white transition-colors flex items-center justify-center gap-2"
+                    onClick={() => handleEnterAsRole(member.id)}
+                    disabled={enteringMemberId !== null}
+                    className="w-full py-2 px-3 rounded-lg text-xs font-semibold bg-surface-hover text-ink hover:bg-accent-strong hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Enter as {member.role}</span>
+                    <span>{enteringMemberId === member.id ? 'Entering…' : `Enter as ${member.role}`}</span>
                   </button>
                 </div>
               );

@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -27,23 +29,31 @@ export function TrendIndicator({
   invertSemantics = false,
   comparisonLabel = 'vs prior period',
 }: {
-  value: number;
+  value: number | null;
   suffix?: string;
   invertSemantics?: boolean;
   comparisonLabel?: string;
 }) {
+  if (value === null) {
+    return (
+      <span className="text-caption font-medium text-ink-muted">
+        New<span className="sr-only">. The prior period was zero.</span>
+      </span>
+    );
+  }
+
   const isZero = Math.abs(value) < 0.05;
   const isPositive = value > 0;
   const isGood = invertSemantics ? !isPositive : isPositive;
 
   if (isZero) {
     return (
-      <span className="inline-flex items-center gap-1 text-xs tabular-nums text-ink-muted">
-        <Minus className="w-3.5 h-3.5" />
+      <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-caption tabular-nums text-ink-muted">
+        <Minus className="size-3.5 shrink-0" aria-hidden="true" />
         <span>0.0{suffix}</span>
         {comparisonLabel && (
           <span className="font-normal text-ink-muted">
-            · {comparisonLabel}
+            {comparisonLabel}
           </span>
         )}
       </span>
@@ -57,16 +67,16 @@ export function TrendIndicator({
   const Icon = isPositive ? ArrowUpRight : ArrowDownRight;
 
   return (
-    <span className={`inline-flex items-center gap-1 text-xs tabular-nums font-medium ${colorClass}`}>
-      <Icon className="w-3.5 h-3.5 shrink-0" />
-      <span>
+    <span className={`inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-caption tabular-nums font-medium ${colorClass}`}>
+      <span className="inline-flex items-center gap-1 whitespace-nowrap">
+        <Icon className="size-3.5 shrink-0" aria-hidden="true" />
         {isPositive ? '+' : ''}
         {value.toFixed(1)}
         {suffix}
       </span>
       {comparisonLabel && (
         <span className="font-normal text-ink-muted">
-          · {comparisonLabel}
+          {comparisonLabel}
         </span>
       )}
     </span>
@@ -181,7 +191,7 @@ export function StatusBadge({
     <span
       className={`inline-flex items-center gap-2 px-2 py-1 rounded-md text-xs font-medium border whitespace-nowrap shrink-0 ${item.bgClass} ${item.textClass}`}
     >
-      <Icon className="w-3 h-3 shrink-0" />
+      <Icon className="w-3 h-3 shrink-0" aria-hidden="true" />
       <span>{status}</span>
     </span>
   );
@@ -193,55 +203,45 @@ export function KPIStatCard({
   delta,
   invertDelta = false,
   secondaryMeta,
-  onClick,
+  href,
 }: {
   label: string;
   value: string;
-  delta?: number;
+  delta?: number | null;
   invertDelta?: boolean;
   secondaryMeta?: string;
-  onClick?: () => void;
+  href?: string;
 }) {
-  const interactiveProps = onClick
-    ? {
-        role: 'button' as const,
-        tabIndex: 0,
-        onClick,
-        onKeyDown: (e: React.KeyboardEvent) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onClick();
-          }
-        },
-      }
-    : {};
-
-  return (
-    <div
-      {...interactiveProps}
-      className={`card @container flex flex-col justify-between gap-3 transition-colors ${
-        onClick ? 'cursor-pointer hover:border-accent' : ''
-      }`}
-    >
-      <span className="text-caption text-ink-secondary truncate" title={label}>
-        {label}
-      </span>
-      <div>
-        <div className="text-kpi text-ink truncate" title={value}>
+  const layout = 'card @container flex min-w-0 flex-col gap-2.5 p-3.5 sm:p-5';
+  const content = (
+    <>
+      <div className="space-y-1.5">
+        <div className="text-caption leading-5 text-ink-secondary wrap-break-word @max-[11rem]:min-h-10">
+          {label}
+        </div>
+        <div className="text-kpi text-ink wrap-anywhere">
           {value}
         </div>
         {secondaryMeta && (
-          <div className="mt-1 text-caption tabular-nums text-ink-muted truncate">
+          <div className="text-caption tabular-nums text-ink-muted wrap-anywhere">
             {secondaryMeta}
           </div>
         )}
       </div>
       {delta !== undefined && (
-        <div className="pt-3 border-t border-line-subtle">
+        <div className="mt-auto border-t border-line-subtle pt-2.5">
           <TrendIndicator value={delta} invertSemantics={invertDelta} />
         </div>
       )}
-    </div>
+    </>
+  );
+
+  return href ? (
+    <Link href={href} className={`${layout} transition-colors hover:border-accent hover:bg-surface-hover`}>
+      {content}
+    </Link>
+  ) : (
+    <div className={layout}>{content}</div>
   );
 }
 
@@ -259,17 +259,14 @@ export function PageHeader({
   return (
     <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-line-subtle">
       <div className="space-y-2 min-w-0">
-        <div className="flex flex-wrap items-center gap-2 text-caption text-ink-muted">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-ink-muted">
           <span>Aurelix Intelligence</span>
           {meta && (
-            <>
-              <span aria-hidden="true">·</span>
-              <span className="tabular-nums">{meta}</span>
-            </>
+            <span className="tabular-nums sm:border-l sm:border-line sm:pl-2">{meta}</span>
           )}
         </div>
         <h1 className="text-2xl/8 md:text-title font-semibold text-ink">{title}</h1>
-        {subtitle && <p className="text-sm text-ink-secondary max-w-2xl">{subtitle}</p>}
+        {subtitle && <p className="max-w-2xl text-sm/6 text-ink-secondary">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-3 shrink-0">{actions}</div>}
     </div>
@@ -285,7 +282,7 @@ export function UserAvatar({
   src?: string;
   size?: 'sm' | 'md' | 'lg';
 }) {
-  const [imgError, setImgError] = useState(false);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const initials = name
     .split(' ')
     .map((p) => p[0])
@@ -299,15 +296,19 @@ export function UserAvatar({
       : size === 'lg'
       ? 'w-11 h-11 text-sm'
       : 'w-8 h-8 text-xs';
+  const pixels = size === 'sm' ? 28 : size === 'lg' ? 44 : 32;
 
-  if (src && !imgError) {
+  if (src && src !== failedSrc) {
     return (
       <div className={`relative rounded-lg overflow-hidden shrink-0 border border-line-subtle ${sizeClass}`}>
-        <img
+        <Image
           src={src}
           alt={name}
+          width={pixels}
+          height={pixels}
+          unoptimized={!src.startsWith('/images/avatar_')}
           referrerPolicy="no-referrer"
-          onError={() => setImgError(true)}
+          onError={() => setFailedSrc(src)}
           className="w-full h-full object-cover"
         />
       </div>

@@ -1,63 +1,66 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { X, AlertTriangle, Inbox, ChevronLeft, ChevronRight } from 'lucide-react';
 
-function useDialogFocusTrap(
-  open: boolean,
-  containerRef: React.RefObject<HTMLDivElement | null>,
-  onClose: () => void
-) {
-  useEffect(() => {
-    if (!open) return;
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    const container = containerRef.current;
-    if (container) {
-      const focusable = container.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusable.length > 0) {
-        focusable[0].focus();
-      } else {
-        container.focus();
-      }
-    }
+function OverlayDialog({ title, onClose, className, children }: {
+  title: string;
+  onClose: () => void;
+  className: string;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
 
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-      if (e.key === 'Tab' && container) {
-        const focusable = Array.from(
-          container.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-          )
-        ).filter((el) => el.offsetParent !== null);
-        if (focusable.length === 0) {
-          e.preventDefault();
-          return;
-        }
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
+  useLayoutEffect(() => {
+    const dialog = ref.current!;
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const parentDialog = trigger?.closest('dialog');
+    dialog.showModal();
 
-    window.addEventListener('keydown', handleKey);
     return () => {
-      window.removeEventListener('keydown', handleKey);
-      if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
-        previouslyFocused.focus();
-      }
+      dialog.close();
+      // The action can remove its trigger, for example after a successful refund.
+      queueMicrotask(() => {
+        if (dialog.open || document.activeElement !== document.body) return;
+        if (trigger?.isConnected && trigger !== document.body && !trigger.matches(':disabled')) {
+          trigger.focus({ preventScroll: true });
+        }
+        if (document.activeElement === document.body && parentDialog?.open) {
+          parentDialog.querySelector<HTMLElement>('[data-dialog-close]')?.focus({ preventScroll: true });
+        }
+      });
     };
-  }, [open, containerRef, onClose]);
+  }, []);
+
+  return (
+    <dialog
+      ref={ref}
+      aria-label={title}
+      className={`fixed inset-0 m-0 h-full max-h-none w-full max-w-none overflow-hidden bg-transparent text-ink open:flex backdrop:bg-slate-950/60 backdrop:backdrop-blur-[1px] ${className}`}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== 'Tab') return;
+        const focusable = [...event.currentTarget.querySelectorAll<HTMLElement>(
+          'button, input, select, textarea, a[href], [tabindex]'
+        )].filter((element) => element.tabIndex >= 0 && !element.matches(':disabled') && element.getClientRects().length > 0);
+        const first = focusable[0];
+        const last = focusable.at(-1);
+        const boundary = event.shiftKey ? first : last;
+        if (boundary && document.activeElement === boundary) {
+          event.preventDefault();
+          (event.shiftKey ? last : first)?.focus();
+        }
+      }}
+    >
+      {children}
+    </dialog>
+  );
 }
 
 export function DetailDrawer({
@@ -75,26 +78,11 @@ export function DetailDrawer({
   children: React.ReactNode;
   footer?: React.ReactNode;
 }) {
-  const drawerRef = useRef<HTMLDivElement | null>(null);
-  useDialogFocusTrap(open, drawerRef, onClose);
-
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-[1px]">
-      <div
-        className="fixed inset-0"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div
-        ref={drawerRef}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="relative z-10 w-full max-w-xl bg-surface-raised border-l border-line h-full flex flex-col shadow-2xl focus:outline-none"
-      >
+    <OverlayDialog title={title} onClose={onClose} className="justify-end">
+      <div className="w-full max-w-xl bg-surface-raised border-l border-line h-full flex flex-col shadow-2xl">
         <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-line">
           <div>
             <h2 className="text-heading text-ink">{title}</h2>
@@ -106,19 +94,20 @@ export function DetailDrawer({
             type="button"
             onClick={onClose}
             aria-label="Close drawer"
+            data-dialog-close
             className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">{children}</div>
+        <div className="flex-1 overflow-y-auto overscroll-contain p-6 space-y-6">{children}</div>
         {footer && (
           <div className="px-6 py-4 border-t border-line bg-surface-sunken flex items-center justify-end gap-2.5">
             {footer}
           </div>
         )}
       </div>
-    </div>
+    </OverlayDialog>
   );
 }
 
@@ -137,22 +126,11 @@ export function ModalDialog({
   children: React.ReactNode;
   maxWidth?: string;
 }) {
-  const modalRef = useRef<HTMLDivElement | null>(null);
-  useDialogFocusTrap(open, modalRef, onClose);
-
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-[1px]">
-      <div className="fixed inset-0" onClick={onClose} aria-hidden="true" />
-      <div
-        ref={modalRef}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className={`relative z-10 w-full ${maxWidth} rounded-xl bg-surface-raised border border-line shadow-2xl overflow-hidden flex flex-col max-h-[90vh] focus:outline-none`}
-      >
+    <OverlayDialog title={title} onClose={onClose} className="items-center justify-center p-4">
+      <div className={`w-full ${maxWidth} rounded-xl bg-surface-raised border border-line shadow-2xl overflow-hidden flex flex-col max-h-[90vh]`}>
         <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-line">
           <div>
             <h2 className="text-heading text-ink">{title}</h2>
@@ -164,14 +142,15 @@ export function ModalDialog({
             type="button"
             onClick={onClose}
             aria-label="Close modal"
+            data-dialog-close
             className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-surface-hover transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-6 overflow-y-auto">{children}</div>
+        <div className="p-6 overflow-y-auto overscroll-contain">{children}</div>
       </div>
-    </div>
+    </OverlayDialog>
   );
 }
 
@@ -186,12 +165,13 @@ export function ConfirmDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | boolean | Promise<void | boolean>;
   title: string;
   description: string;
   confirmLabel?: string;
   destructive?: boolean;
 }) {
+  const [confirming, setConfirming] = useState(false);
   if (!open) return null;
 
   return (
@@ -221,11 +201,16 @@ export function ConfirmDialog({
           </button>
           <button
             type="button"
-            onClick={() => {
-              onConfirm();
-              onClose();
+            disabled={confirming}
+            onClick={async () => {
+              setConfirming(true);
+              try {
+                if (await onConfirm() !== false) onClose();
+              } finally {
+                setConfirming(false);
+              }
             }}
-            className={`px-4 py-2 text-xs font-medium rounded-lg text-white transition-colors whitespace-nowrap shrink-0 ${
+            className={`px-4 py-2 text-xs font-medium rounded-lg text-white transition-colors whitespace-nowrap shrink-0 disabled:opacity-50 ${
               destructive
                 ? 'bg-red-600 hover:bg-red-700'
                 : 'bg-accent-strong hover:bg-accent-strong-hover'

@@ -10,6 +10,7 @@ import {
   calculateSalesByCategory,
   calculateSalesByChannel,
   filterOrdersByWindow,
+  isRealizedOrder,
   resolveDateWindow,
 } from '@/lib/calculations/analytics';
 import {
@@ -86,9 +87,7 @@ export default function DeepAnalyticsPage() {
     const uniqueVisitors = periodSessions.reduce((acc, s) => acc + s.uniqueVisitors, 0);
     const demoRequests = periodSessions.reduce((acc, s) => acc + s.demoRequests, 0);
     const checkoutInitiated = periodSessions.reduce((acc, s) => acc + s.cartInitiated, 0);
-    const settledOrders = windowOrders.filter(
-      (o) => o.paymentStatus === 'Paid' || o.paymentStatus === 'Refunded'
-    ).length;
+    const settledOrders = windowOrders.filter(isRealizedOrder).length;
 
     const topBase = totalSessions > 0 ? totalSessions : 0;
     const visitorBase = uniqueVisitors > 0 ? uniqueVisitors : 0;
@@ -258,9 +257,9 @@ export default function DeepAnalyticsPage() {
         />
         <KPIStatCard
           label="Completed Orders"
-          value={comparison.current.totalOrdersCount.toLocaleString()}
-          delta={comparison.deltas.totalOrders}
-          secondaryMeta={`Prior: ${comparison.previous.totalOrdersCount}`}
+          value={comparison.current.completedOrdersCount.toLocaleString()}
+          delta={comparison.deltas.completedOrders}
+          secondaryMeta={`Fulfilled, paid or refunded · Prior: ${comparison.previous.completedOrdersCount}`}
         />
         <KPIStatCard
           label="Refund Rate (% of Gross)"

@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
-import { STORAGE_KEYS } from '@/lib/storage/repository';
+import { runWorkspaceTransaction, STORAGE_KEYS } from '@/lib/storage/repository';
 import { ToastContainer } from '@/components/feedback/ToastContainer';
 
 export function AppInitializer({ children }: { children: React.ReactNode }) {
@@ -16,7 +16,9 @@ export function AppInitializer({ children }: { children: React.ReactNode }) {
   const dismissStorageError = useAppStore((s) => s.dismissStorageError);
 
   useEffect(() => {
-    hydrateStore();
+    void runWorkspaceTransaction(() => {
+      if (!useAppStore.getState().isHydrated) hydrateStore();
+    });
   }, [hydrateStore]);
 
   useEffect(() => {

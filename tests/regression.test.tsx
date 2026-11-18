@@ -29,7 +29,7 @@ import { Order, TeamRole } from '@/types';
 describe('AURELIX Regression Suite — Financial Integrity, Pagination, Timezone, Security & RBAC', () => {
   beforeEach(() => {
     window.localStorage.clear();
-    useAppStore.getState().resetDemoData();
+    useAppStore.getState().hydrateStore();
   });
 
   it('01. performs decimal-safe integer cent arithmetic without floating-point drift', () => {
@@ -384,7 +384,7 @@ describe('AURELIX Regression Suite — Financial Integrity, Pagination, Timezone
       status: 'Active',
       country: 'Canada',
     });
-    expect(created).not.toBeNull();
+    expect(created).toBeNull();
     expect(useAppStore.getState().storageQuotaError).toBeTruthy();
 
     useAppStore.getState().dismissStorageError();

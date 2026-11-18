@@ -9,6 +9,7 @@
    >= 4.5:1 on every surface, --border >= 3:1 against --surface.
    ------------------------------------------------------------------ */
 :root {
+  color-scheme: light;
   --surface: #F1F5F9;          /* page background */
   --surface-raised: #FFFFFF;   /* cards, popovers */
   --surface-sunken: #E9EEF5;   /* wells, inputs, segmented tracks */
@@ -40,6 +41,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --surface: #090D18;
   --surface-raised: #161F32;
   --surface-sunken: #0F1625;
@@ -50,7 +52,7 @@
   --text-secondary: #CBD5E1;
   --text-muted: #A3B0C4;
 
-  --border: #56657F;
+  --border: #657792;
   --border-subtle: #2A3650;
 
   --accent: #60A5FA;
@@ -121,15 +123,15 @@
   --text-subheading--line-height: 1.375rem;
   --text-subheading--font-weight: 600;
 
-  --text-caption: 0.75rem;
-  --text-caption--line-height: 1rem;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.125rem;
   --text-caption--font-weight: 500;
 }
 
-/* KPI value: 32/36 bold, scaling down only when its card is too narrow. */
+/* Size values against usable card width, including cards beside the sidebar. */
 @utility text-kpi {
-  font-size: clamp(1.375rem, 13cqi, 2rem);
-  line-height: 2.25rem;
+  font-size: clamp(1.125rem, 12cqi, 2rem);
+  line-height: 1.15;
   font-weight: 700;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;

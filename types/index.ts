@@ -48,7 +48,7 @@ export interface OrderLineItem {
   productId: string;
   productName: string;
   sku: string;
-  category: ProductCategory;
+  category?: ProductCategory | null; // Older backups may lack a recorded category.
   quantity: number;
   unitPrice: number; // Locked historical price at time of order
   subtotal: number;
@@ -69,6 +69,7 @@ export interface Order {
   taxAmount: number;
   totalAmount: number;
   refundedAmount: number;
+  stockDebits?: Array<{ productId: string; quantity: number }>;
   paymentStatus: PaymentStatus;
   fulfillmentStatus: FulfillmentStatus;
   salesChannel: SalesChannel;

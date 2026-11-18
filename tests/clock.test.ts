@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { generateDeterministicSeedData } from '@/lib/demo-data/seed';
-import { rebaseToNow } from '@/lib/storage/repository';
 import { resolveDateWindow, filterOrdersByWindow } from '@/lib/calculations/analytics';
 import { DAY_MS, isoDay, nowMs } from '@/lib/clock';
 import { useAppStore } from '@/stores/useAppStore';
@@ -23,7 +22,7 @@ function allSeedTimestamps(seed: ReturnType<typeof generateDeterministicSeedData
 describe('single clock: seed, windows and runtime records', () => {
   beforeEach(() => {
     window.localStorage.clear();
-    useAppStore.getState().resetDemoData();
+    useAppStore.getState().hydrateStore();
   });
 
   it('seeds relative to the given now, with nothing dated after it', () => {
@@ -73,23 +72,10 @@ describe('single clock: seed, windows and runtime records', () => {
     expect(Date.parse(order!.orderDate)).toBeLessThanOrEqual(nowMs());
   });
 
-  it('rebases a seed saved on an earlier day without moving runtime records into the future', () => {
-    const seededAt = NOW - 3 * DAY_MS;
-    const seed = generateDeterministicSeedData(seededAt);
-    const runtimeTs = new Date(seededAt + 2 * 3600_000).toISOString();
-    const saved = {
-      ...seed,
-      activities: [{ ...seed.activities[0], id: 'act_runtime', timestamp: runtimeTs }, ...seed.activities],
-    };
-
-    const rebased = rebaseToNow(saved, NOW);
-    expect(rebased.seededAt).toBe(new Date(NOW).toISOString());
-    expect(Date.parse(rebased.orders[0].orderDate)).toBe(Date.parse(seed.orders[0].orderDate) + 3 * DAY_MS);
-    expect(rebased.dailySessions.at(-1)?.date).toBe(isoDay(NOW));
-    expect(rebased.activities[0].timestamp).toBe(runtimeTs);
-    for (const iso of allSeedTimestamps(rebased)) {
-      expect(Date.parse(iso)).toBeLessThanOrEqual(NOW);
-    }
-    expect(rebaseToNow(rebased, NOW)).toBe(rebased);
+  it('keeps historical date windows addressable when the active clock advances', () => {
+    const seed = generateDeterministicSeedData(NOW);
+    const day = seed.orders[0].orderDate.slice(0, 10);
+    const win = resolveDateWindow('custom', day, day, new Date(NOW + 45 * DAY_MS).toISOString());
+    expect(filterOrdersByWindow(seed.orders, win.startMs, win.endMs)).toContain(seed.orders[0]);
   });
 });
